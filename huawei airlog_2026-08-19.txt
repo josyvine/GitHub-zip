@@ -1,230 +1,201 @@
-[2026-08-19 12:32:53.842] [INFO/AudioTransferService]: Initializing AudioTransferService
-[2026-08-19 12:32:53.848] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_SEND_LOCAL_PHONETIC
-[2026-08-19 12:32:53.849] [INFO/AudioTransferService]: Starting Local Acoustic Transmission sequence...
-[2026-08-19 12:32:58.862] [INFO/AudioTransferService]: Speakerphone set to TRUE for acoustic coupling
-[2026-08-19 12:32:59.012] [INFO/AudioTransferService]: Audio routing configured: Mode=0, Speaker=true, MusicVol=15/15
-[2026-08-19 12:32:59.028] [INFO/AudioReceiver]: AudioRecord successfully initialized with Source=VOICE_RECOGNITION, SampleRate=48000 Hz, Baud=1200
-[2026-08-19 12:32:59.045] [INFO/AudioReceiver]: AudioReceiver recording started actively.
-[2026-08-19 12:32:59.057] [INFO/AudioEncoder]: Transmitting remote ACTIVATE_RECEIVER acoustic command...
-[2026-08-19 12:32:59.059] [INFO/AudioEncoder]: No active telephony call attached. Generating GGWave DSP acoustic waveform (25 bytes)...
-[2026-08-19 12:33:05.326] [INFO/AudioTransferService]: Local Wake-Up signal transmitted. Starting 5-second sync countdown...
-[2026-08-19 12:33:10.341] [INFO/AudioTransferService]: Audio routing configured: Mode=0, Speaker=true, MusicVol=15/15
-[2026-08-19 12:33:10.357] [INFO/PhoneticImageTransceiver]: Transmitting image. Raw bytes: 5660, Compressed payload: 3018 bytes.
-[2026-08-19 12:33:10.359] [INFO/AudioEncoder]: No active telephony call attached. Generating GGWave DSP acoustic waveform (3018 bytes)...
-[2026-08-19 12:33:30.428] [INFO/AudioTransferService]: Phonetic Image Transmitted successfully! (16 tokens)
-[2026-08-19 12:34:10.282] [INFO/CallManager]: Initiating call to 9744778792
-[2026-08-19 12:34:10.297] [INFO/CallManager]: ACTION_CALL intent started successfully for 9744778792
-[2026-08-19 12:34:10.310] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_SEND_PHONETIC_IMAGE
-[2026-08-19 12:34:10.311] [INFO/AudioTransferService]: Call is not yet active (Dialing/Ringing). Payload staged safely.
-[2026-08-19 12:34:10.434] [INFO/InCallService]: AirSignalInCallService created
-[2026-08-19 12:34:10.458] [INFO/InCallService]: onCallAdded: state=STATE_CONNECTING, number=9744778792
-[2026-08-19 12:34:10.460] [INFO/InCallService]: Starting InCallActivity for call with number: 9744778792
-[2026-08-19 12:34:10.470] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_EARPIECE, SupportedRoutes=9, isMuted=false
-[2026-08-19 12:34:10.525] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:10.538] [INFO/InCallActivity]: updateTelecomCallState: state=9
-[2026-08-19 12:34:10.587] [INFO/InCallService]: Call State Changed: STATE_DIALING for number=9744778792
-[2026-08-19 12:34:10.588] [INFO/InCallActivity]: updateTelecomCallState: state=1
-[2026-08-19 12:34:12.647] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:14.790] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:16.930] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:19.050] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:21.190] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:23.331] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:25.450] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:27.590] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:29.730] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:31.850] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:33.990] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:36.130] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:37.918] [INFO/InCallService]: Setting speakerphone=true
-[2026-08-19 12:34:37.946] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_SPEAKER, SupportedRoutes=9, isMuted=false
-[2026-08-19 12:34:38.251] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:39.908] [INFO/InCallService]: Call State Changed: STATE_ACTIVE for number=9744778792
-[2026-08-19 12:34:39.910] [INFO/InCallService]: Call became ACTIVE. Forcing loud speakerphone route and notifying AudioTransferService (ACTION_CALL_ACTIVE).
-[2026-08-19 12:34:39.911] [INFO/InCallService]: Setting speakerphone=true
-[2026-08-19 12:34:39.914] [INFO/InCallActivity]: updateTelecomCallState: state=4
-[2026-08-19 12:34:39.915] [INFO/InCallActivity]: Call state ACTIVE - started call duration timer
-[2026-08-19 12:34:39.916] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_CALL_ACTIVE
-[2026-08-19 12:34:39.932] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:34:40.390] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:42.530] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:44.397] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_EXECUTE_STAGED_TRANSMISSION
-[2026-08-19 12:34:44.397] [INFO/AudioTransferService]: User triggered ACTION_EXECUTE_STAGED_TRANSMISSION from in-call screen.
-[2026-08-19 12:34:44.404] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:34:44.649] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:45.214] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:34:45.217] [INFO/AudioEncoder]: Transmitting remote ACTIVATE_RECEIVER acoustic command...
-[2026-08-19 12:34:45.219] [INFO/AudioEncoder]: Transmitting data payload directly over active cellular call channel (25 bytes)...
-[2026-08-19 12:34:46.791] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:48.931] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:49.777] [INFO/AudioTransferService]: Activation command transmitted. Entering 7-second synchronization countdown...
-[2026-08-19 12:34:51.051] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:53.190] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:55.330] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:56.797] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:34:56.832] [INFO/PhoneticImageTransceiver]: Transmitting image. Raw bytes: 5660, Compressed payload: 3018 bytes.
-[2026-08-19 12:34:56.833] [INFO/AudioEncoder]: Transmitting data payload directly over active cellular call channel (3018 bytes)...
-[2026-08-19 12:34:57.450] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:34:59.598] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:01.730] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:03.850] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:05.990] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:08.130] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:10.251] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:12.392] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:14.531] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:16.651] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:18.791] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:20.930] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:23.051] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:25.189] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:27.331] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:29.449] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:31.589] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:33.730] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:35.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:37.991] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:40.131] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:42.251] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:44.391] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:46.530] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:48.651] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:50.790] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:52.932] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:55.049] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:57.190] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:35:59.331] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:01.452] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:03.591] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:05.729] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:07.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:09.990] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:12.131] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:14.249] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:16.392] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:18.529] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:20.651] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:22.789] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:24.931] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:27.050] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:29.191] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:31.329] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:33.451] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:35.591] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:37.732] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:39.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:41.992] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:44.131] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:46.250] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:48.391] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:50.529] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:52.649] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:54.790] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:56.932] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:36:59.049] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:01.191] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:03.328] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:05.451] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:07.588] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:09.731] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:11.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:13.991] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:16.129] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:18.249] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:20.390] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:22.530] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:24.650] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:26.790] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:28.930] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:31.051] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:33.190] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:35.329] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:37.450] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:39.591] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:41.729] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:43.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:45.989] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:48.130] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:50.250] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:52.389] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:54.158] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_EXECUTE_STAGED_TRANSMISSION
-[2026-08-19 12:37:54.158] [INFO/AudioTransferService]: User triggered ACTION_EXECUTE_STAGED_TRANSMISSION from in-call screen.
-[2026-08-19 12:37:54.165] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:37:54.528] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:56.650] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:37:56.977] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_EXECUTE_STAGED_TRANSMISSION
-[2026-08-19 12:37:56.978] [INFO/AudioTransferService]: User triggered ACTION_EXECUTE_STAGED_TRANSMISSION from in-call screen.
-[2026-08-19 12:37:56.984] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:37:57.709] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_EXECUTE_STAGED_TRANSMISSION
-[2026-08-19 12:37:57.710] [INFO/AudioTransferService]: User triggered ACTION_EXECUTE_STAGED_TRANSMISSION from in-call screen.
-[2026-08-19 12:37:57.717] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:37:58.196] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_EXECUTE_STAGED_TRANSMISSION
-[2026-08-19 12:37:58.196] [INFO/AudioTransferService]: User triggered ACTION_EXECUTE_STAGED_TRANSMISSION from in-call screen.
-[2026-08-19 12:37:58.202] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
-[2026-08-19 12:37:58.790] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:00.930] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:03.050] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:05.191] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:07.329] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:09.451] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:11.590] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:13.730] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:15.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:17.989] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:20.131] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:22.249] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:24.389] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:26.529] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:28.652] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:30.791] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:32.930] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:35.049] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:37.191] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:39.331] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:41.449] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:43.589] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:45.729] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:47.850] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:49.992] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:52.131] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:54.251] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:56.390] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:38:58.530] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:00.651] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:02.790] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:04.931] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:07.052] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:09.196] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:11.330] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:13.451] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:15.589] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:17.731] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:19.851] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:21.992] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:24.131] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:26.251] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:28.392] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:30.531] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:32.652] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:34.789] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:36.933] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
-[2026-08-19 12:39:37.175] [INFO/InCallService]: User requested disconnect of active call
-[2026-08-19 12:39:37.275] [INFO/InCallService]: Call State Changed: STATE_DISCONNECTING for number=9744778792
-[2026-08-19 12:39:37.275] [INFO/InCallService]: Call DISCONNECTED. Stopping AudioTransferService.
-[2026-08-19 12:39:37.285] [INFO/InCallActivity]: updateTelecomCallState: state=10
-[2026-08-19 12:39:37.286] [INFO/InCallActivity]: Telecom Call disconnected/disconnecting
-[2026-08-19 12:39:37.296] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
-[2026-08-19 12:39:37.304] [INFO/AudioTransferService]: Destroying AudioTransferService
-[2026-08-19 12:39:37.337] [INFO/AudioReceiver]: AudioReceiver stopped listening
-[2026-08-19 12:39:37.347] [INFO/InCallService]: Call State Changed: STATE_DISCONNECTED for number=9744778792
-[2026-08-19 12:39:37.347] [INFO/InCallService]: Call DISCONNECTED. Stopping AudioTransferService.
-[2026-08-19 12:39:37.350] [INFO/InCallActivity]: updateTelecomCallState: state=7
-[2026-08-19 12:39:37.351] [INFO/InCallActivity]: Telecom Call disconnected/disconnecting
-[2026-08-19 12:39:37.363] [INFO/InCallService]: onCallRemoved: number=9744778792
-[2026-08-19 12:39:37.367] [INFO/AudioTransferService]: Initializing AudioTransferService
-[2026-08-19 12:39:37.370] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
-[2026-08-19 12:39:37.372] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
-[2026-08-19 12:39:37.372] [INFO/AudioTransferService]: Destroying AudioTransferService
-[2026-08-19 12:39:37.372] [INFO/AudioReceiver]: AudioReceiver stopped listening
-[2026-08-19 12:39:37.389] [INFO/AudioTransferService]: Phonetic Image Transmitted successfully! (16 tokens)
-[2026-08-19 12:39:39.401] [INFO/InCallService]: AirSignalInCallService destroyed
+[2026-08-19 13:29:41.474] [INFO/InCallService]: AirSignalInCallService created
+[2026-08-19 13:29:41.546] [INFO/InCallService]: onCallAdded: state=STATE_RINGING, number=+919074086889
+[2026-08-19 13:29:41.554] [INFO/InCallService]: Starting InCallActivity for call with number: +919074086889
+[2026-08-19 13:29:41.577] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_EARPIECE, SupportedRoutes=9, isMuted=false
+[2026-08-19 13:29:41.672] [INFO/InCallActivity]: updateTelecomCallState: state=2
+[2026-08-19 13:29:43.270] [INFO/InCallService]: Call State Changed: STATE_ACTIVE for number=+919074086889
+[2026-08-19 13:29:43.271] [INFO/InCallService]: Call became ACTIVE. Forcing loud speakerphone route and notifying AudioTransferService (ACTION_CALL_ACTIVE).
+[2026-08-19 13:29:43.272] [INFO/InCallService]: Setting speakerphone=true
+[2026-08-19 13:29:43.281] [INFO/InCallActivity]: updateTelecomCallState: state=4
+[2026-08-19 13:29:43.283] [INFO/InCallActivity]: Call state ACTIVE - started call duration timer
+[2026-08-19 13:29:43.285] [INFO/AudioTransferService]: Initializing AudioTransferService
+[2026-08-19 13:29:43.302] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_CALL_ACTIVE
+[2026-08-19 13:29:43.451] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
+[2026-08-19 13:29:43.492] [INFO/AudioReceiver]: AudioRecord successfully initialized with Source=MIC, SampleRate=48000 Hz, Baud=1200
+[2026-08-19 13:29:43.512] [INFO/AudioReceiver]: AudioReceiver recording started actively.
+[2026-08-19 13:29:43.516] [INFO/GGWaveEngine]: Native library 'libggwave-native.so' successfully loaded.
+[2026-08-19 13:29:43.517] [INFO/GGWaveEngine]: Native GGWave instance initialized at 48000 Hz
+[2026-08-19 13:29:43.524] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_SPEAKER, SupportedRoutes=9, isMuted=false
+[2026-08-19 13:29:43.564] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:44.123] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=15/15
+[2026-08-19 13:29:44.124] [INFO/AudioEncoder]: Transmitting receiver ready acoustic acknowledgment (AIR_ACK:RECEIVER_READY)...
+[2026-08-19 13:29:44.125] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (22 bytes)...
+[2026-08-19 13:29:44.132] [INFO/InCallService]: Setting speakerphone=true
+[2026-08-19 13:29:45.684] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:47.826] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:49.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:52.086] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:54.225] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:56.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:29:58.486] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:00.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:02.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:04.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:07.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:09.166] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:11.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:13.425] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:15.566] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:17.686] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:19.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:21.966] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:24.086] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:26.225] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:28.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:30.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:32.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:34.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:36.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:39.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:41.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:43.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:45.425] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (2901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:47.566] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:49.686] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:51.824] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:53.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:56.086] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:58.226] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:00.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:02.486] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:04.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:06.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (3901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:08.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:11.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:13.166] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:15.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.426] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.566] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:21.686] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:23.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:25.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:28.085] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (4901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:30.226] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:32.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:34.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:36.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:38.766] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:40.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:43.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:45.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:47.286] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:49.425] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (5901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:51.565] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:53.686] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:55.826] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:57.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:00.085] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:02.226] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:04.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:06.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:08.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:10.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (6901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:12.886] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:15.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:17.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:19.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:21.425] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:23.565] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:25.686] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:27.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:29.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:32.085] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (7901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:34.226] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:36.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:38.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:40.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:42.766] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:44.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:47.026] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:49.166] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:51.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:53.425] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (8901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:55.565] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:57.685] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:32:59.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:01.966] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:04.085] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:06.225] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:08.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:10.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:12.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:14.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (9901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:16.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:19.030] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:21.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:23.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:25.424] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:27.565] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:29.685] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:31.826] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:33.966] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:36.085] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (10901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:38.226] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:40.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:42.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:44.624] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:46.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:48.886] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:51.026] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:53.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:55.286] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:57.425] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (11901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:33:59.566] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:01.686] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:03.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:05.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:08.086] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:10.225] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:12.366] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:14.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:16.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:18.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (12901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:20.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:23.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:25.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:27.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:29.424] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:31.213] [INFO/SYSTEM]: AirLogger initialized successfully.
+[2026-08-19 13:34:31.213] [INFO/MainActivity]: MainActivity onCreate called
+[2026-08-19 13:34:31.214] [INFO/MainActivity]: All permissions are already granted.
+[2026-08-19 13:34:31.216] [INFO/MainActivity]: Role & Overlay check -> isDefaultDialer=true, isDefaultSms=true, hasOverlay=true
+[2026-08-19 13:34:31.564] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:33.684] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:35.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:37.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:40.084] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (13901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:42.224] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:44.365] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:46.485] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:48.624] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:50.764] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:52.884] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:55.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:57.165] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:34:59.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:01.424] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (14901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:03.565] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:05.685] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:07.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:09.965] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:12.085] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15401 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:14.224] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15501 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:16.364] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15601 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:18.486] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15701 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:20.625] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15801 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:22.765] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (15901 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:24.885] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (16001 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:27.025] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (16101 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:29.166] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (16201 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:31.285] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (16301 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:35:31.884] [INFO/InCallService]: Call State Changed: STATE_DISCONNECTED for number=+919074086889
+[2026-08-19 13:35:31.885] [INFO/InCallService]: Call DISCONNECTED. Stopping AudioTransferService.
+[2026-08-19 13:35:31.888] [INFO/InCallActivity]: updateTelecomCallState: state=7
+[2026-08-19 13:35:31.889] [INFO/InCallActivity]: Telecom Call disconnected/disconnecting
+[2026-08-19 13:35:31.889] [INFO/InCallService]: User requested disconnect of active call
+[2026-08-19 13:35:31.911] [INFO/InCallService]: onCallRemoved: number=+919074086889
+[2026-08-19 13:35:31.914] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
+[2026-08-19 13:35:32.042] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
+[2026-08-19 13:35:32.061] [INFO/AudioTransferService]: Destroying AudioTransferService
+[2026-08-19 13:35:32.102] [INFO/AudioReceiver]: AudioReceiver stopped listening
+[2026-08-19 13:35:33.981] [INFO/InCallService]: AirSignalInCallService destroyed
