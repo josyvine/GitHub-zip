@@ -1,0 +1,33 @@
+[2026-08-19 12:35:23.507] [INFO/InCallService]: AirSignalInCallService created
+[2026-08-19 12:35:23.964] [INFO/InCallService]: onCallAdded: state=STATE_RINGING, number=+919562806984
+[2026-08-19 12:35:23.975] [INFO/InCallService]: Starting InCallActivity for call with number: +919562806984
+[2026-08-19 12:35:24.047] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_EARPIECE, SupportedRoutes=9, isMuted=false
+[2026-08-19 12:35:24.757] [INFO/InCallActivity]: updateTelecomCallState: state=2
+[2026-08-19 12:35:24.952] [INFO/InCallActivity]: updateTelecomCallState: state=2
+[2026-08-19 12:35:29.611] [INFO/InCallService]: Call State Changed: STATE_ACTIVE for number=+919562806984
+[2026-08-19 12:35:29.613] [INFO/InCallService]: Call became ACTIVE. Forcing loud speakerphone route and notifying AudioTransferService (ACTION_CALL_ACTIVE).
+[2026-08-19 12:35:29.614] [INFO/InCallService]: Setting speakerphone=true
+[2026-08-19 12:35:29.624] [INFO/InCallActivity]: updateTelecomCallState: state=4
+[2026-08-19 12:35:29.628] [INFO/InCallActivity]: Call state ACTIVE - started call duration timer
+[2026-08-19 12:35:29.631] [INFO/AudioTransferService]: Initializing AudioTransferService
+[2026-08-19 12:35:29.658] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_CALL_ACTIVE
+[2026-08-19 12:35:29.678] [INFO/AudioTransferService]: Speakerphone set to TRUE for acoustic coupling
+[2026-08-19 12:35:30.158] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
+[2026-08-19 12:35:30.186] [INFO/AudioReceiver]: AudioRecord successfully initialized with Source=VOICE_RECOGNITION, SampleRate=48000 Hz, Baud=1200
+[2026-08-19 12:35:30.351] [INFO/AudioReceiver]: AudioReceiver recording started actively.
+[2026-08-19 12:35:30.389] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_SPEAKER, SupportedRoutes=9, isMuted=false
+[2026-08-19 12:35:30.992] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
+[2026-08-19 12:35:30.994] [INFO/AudioEncoder]: Transmitting receiver ready acoustic acknowledgment (AIR_ACK:RECEIVER_READY)...
+[2026-08-19 12:35:30.997] [INFO/AudioEncoder]: Transmitting data payload directly over active cellular call channel (22 bytes)...
+[2026-08-19 12:35:32.224] [INFO/InCallService]: Setting speakerphone=true
+[2026-08-19 12:40:27.847] [INFO/InCallService]: User requested disconnect of active call
+[2026-08-19 12:40:29.034] [INFO/InCallService]: Call State Changed: STATE_DISCONNECTED for number=+919562806984
+[2026-08-19 12:40:29.036] [INFO/InCallService]: Call DISCONNECTED. Stopping AudioTransferService.
+[2026-08-19 12:40:29.045] [INFO/InCallActivity]: updateTelecomCallState: state=7
+[2026-08-19 12:40:29.047] [INFO/InCallActivity]: Telecom Call disconnected/disconnecting
+[2026-08-19 12:40:29.069] [INFO/InCallService]: onCallRemoved: number=+919562806984
+[2026-08-19 12:40:29.085] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
+[2026-08-19 12:40:29.175] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
+[2026-08-19 12:40:29.177] [INFO/AudioTransferService]: Destroying AudioTransferService
+[2026-08-19 12:40:29.296] [INFO/AudioReceiver]: AudioReceiver stopped listening
+[2026-08-19 12:40:31.525] [INFO/InCallService]: AirSignalInCallService destroyed
