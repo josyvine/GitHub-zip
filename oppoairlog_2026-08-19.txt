@@ -1,33 +1,107 @@
-[2026-08-19 12:35:23.507] [INFO/InCallService]: AirSignalInCallService created
-[2026-08-19 12:35:23.964] [INFO/InCallService]: onCallAdded: state=STATE_RINGING, number=+919562806984
-[2026-08-19 12:35:23.975] [INFO/InCallService]: Starting InCallActivity for call with number: +919562806984
-[2026-08-19 12:35:24.047] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_EARPIECE, SupportedRoutes=9, isMuted=false
-[2026-08-19 12:35:24.757] [INFO/InCallActivity]: updateTelecomCallState: state=2
-[2026-08-19 12:35:24.952] [INFO/InCallActivity]: updateTelecomCallState: state=2
-[2026-08-19 12:35:29.611] [INFO/InCallService]: Call State Changed: STATE_ACTIVE for number=+919562806984
-[2026-08-19 12:35:29.613] [INFO/InCallService]: Call became ACTIVE. Forcing loud speakerphone route and notifying AudioTransferService (ACTION_CALL_ACTIVE).
-[2026-08-19 12:35:29.614] [INFO/InCallService]: Setting speakerphone=true
-[2026-08-19 12:35:29.624] [INFO/InCallActivity]: updateTelecomCallState: state=4
-[2026-08-19 12:35:29.628] [INFO/InCallActivity]: Call state ACTIVE - started call duration timer
-[2026-08-19 12:35:29.631] [INFO/AudioTransferService]: Initializing AudioTransferService
-[2026-08-19 12:35:29.658] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_CALL_ACTIVE
-[2026-08-19 12:35:29.678] [INFO/AudioTransferService]: Speakerphone set to TRUE for acoustic coupling
-[2026-08-19 12:35:30.158] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
-[2026-08-19 12:35:30.186] [INFO/AudioReceiver]: AudioRecord successfully initialized with Source=VOICE_RECOGNITION, SampleRate=48000 Hz, Baud=1200
-[2026-08-19 12:35:30.351] [INFO/AudioReceiver]: AudioReceiver recording started actively.
-[2026-08-19 12:35:30.389] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_SPEAKER, SupportedRoutes=9, isMuted=false
-[2026-08-19 12:35:30.992] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
-[2026-08-19 12:35:30.994] [INFO/AudioEncoder]: Transmitting receiver ready acoustic acknowledgment (AIR_ACK:RECEIVER_READY)...
-[2026-08-19 12:35:30.997] [INFO/AudioEncoder]: Transmitting data payload directly over active cellular call channel (22 bytes)...
-[2026-08-19 12:35:32.224] [INFO/InCallService]: Setting speakerphone=true
-[2026-08-19 12:40:27.847] [INFO/InCallService]: User requested disconnect of active call
-[2026-08-19 12:40:29.034] [INFO/InCallService]: Call State Changed: STATE_DISCONNECTED for number=+919562806984
-[2026-08-19 12:40:29.036] [INFO/InCallService]: Call DISCONNECTED. Stopping AudioTransferService.
-[2026-08-19 12:40:29.045] [INFO/InCallActivity]: updateTelecomCallState: state=7
-[2026-08-19 12:40:29.047] [INFO/InCallActivity]: Telecom Call disconnected/disconnecting
-[2026-08-19 12:40:29.069] [INFO/InCallService]: onCallRemoved: number=+919562806984
-[2026-08-19 12:40:29.085] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
-[2026-08-19 12:40:29.175] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
-[2026-08-19 12:40:29.177] [INFO/AudioTransferService]: Destroying AudioTransferService
-[2026-08-19 12:40:29.296] [INFO/AudioReceiver]: AudioReceiver stopped listening
-[2026-08-19 12:40:31.525] [INFO/InCallService]: AirSignalInCallService destroyed
+[2026-08-19 13:30:18.235] [INFO/CallManager]: Initiating call to +919562806984
+[2026-08-19 13:30:18.301] [INFO/CallManager]: ACTION_CALL intent started successfully for +919562806984
+[2026-08-19 13:30:18.346] [INFO/AudioTransferService]: Initializing AudioTransferService
+[2026-08-19 13:30:18.362] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_SEND_PHONETIC_IMAGE
+[2026-08-19 13:30:18.364] [INFO/AudioTransferService]: Call is not yet active (Dialing/Ringing). Payload staged safely.
+[2026-08-19 13:30:23.194] [INFO/InCallService]: AirSignalInCallService created
+[2026-08-19 13:30:23.449] [INFO/InCallService]: onCallAdded: state=STATE_CONNECTING, number=+919562806984
+[2026-08-19 13:30:23.604] [INFO/InCallService]: Starting InCallActivity for call with number: +919562806984
+[2026-08-19 13:30:23.732] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_EARPIECE, SupportedRoutes=9, isMuted=false
+[2026-08-19 13:30:24.441] [INFO/InCallActivity]: updateTelecomCallState: state=9
+[2026-08-19 13:30:24.611] [INFO/InCallActivity]: updateTelecomCallState: state=9
+[2026-08-19 13:30:24.898] [INFO/InCallService]: Call State Changed: STATE_DIALING for number=+919562806984
+[2026-08-19 13:30:24.900] [INFO/InCallActivity]: updateTelecomCallState: state=1
+[2026-08-19 13:30:26.543] [INFO/InCallService]: Setting speakerphone=true
+[2026-08-19 13:30:26.565] [INFO/InCallService]: CallAudioState updated: Route=ROUTE_SPEAKER, SupportedRoutes=9, isMuted=false
+[2026-08-19 13:30:33.307] [INFO/InCallService]: Call State Changed: STATE_ACTIVE for number=+919562806984
+[2026-08-19 13:30:33.309] [INFO/InCallService]: Call became ACTIVE. Forcing loud speakerphone route and notifying AudioTransferService (ACTION_CALL_ACTIVE).
+[2026-08-19 13:30:33.310] [INFO/InCallService]: Setting speakerphone=true
+[2026-08-19 13:30:33.318] [INFO/InCallActivity]: updateTelecomCallState: state=4
+[2026-08-19 13:30:33.321] [INFO/InCallActivity]: Call state ACTIVE - started call duration timer
+[2026-08-19 13:30:33.324] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_CALL_ACTIVE
+[2026-08-19 13:30:33.353] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
+[2026-08-19 13:30:33.401] [INFO/AudioReceiver]: AudioRecord successfully initialized with Source=MIC, SampleRate=48000 Hz, Baud=1200
+[2026-08-19 13:30:33.602] [INFO/AudioReceiver]: AudioReceiver recording started actively.
+[2026-08-19 13:30:33.630] [INFO/GGWaveEngine]: Native library 'libggwave-native.so' successfully loaded.
+[2026-08-19 13:30:33.631] [INFO/GGWaveEngine]: Native GGWave instance initialized at 48000 Hz
+[2026-08-19 13:30:33.733] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:39.150] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_EXECUTE_STAGED_TRANSMISSION
+[2026-08-19 13:30:39.152] [INFO/AudioTransferService]: User triggered ACTION_EXECUTE_STAGED_TRANSMISSION from in-call screen.
+[2026-08-19 13:30:39.311] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
+[2026-08-19 13:30:40.149] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
+[2026-08-19 13:30:40.159] [INFO/AudioEncoder]: Transmitting remote ACTIVATE_RECEIVER acoustic command...
+[2026-08-19 13:30:40.164] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (25 bytes)...
+[2026-08-19 13:30:46.014] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:46.093] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:30:49.765] [INFO/AudioTransferService]: Activation command transmitted. Entering 7-second synchronization countdown...
+[2026-08-19 13:30:56.811] [INFO/AudioTransferService]: Audio routing configured: Mode=2, Speaker=true, MusicVol=16/16
+[2026-08-19 13:30:56.856] [INFO/PhoneticImageTransceiver]: Transmitting image. Payload sliced into 42 sequenced chunks.
+[2026-08-19 13:30:56.860] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:31:16.233] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.392] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.472] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.554] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.653] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.733] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.792] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:16.833] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.033] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.253] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.613] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.673] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.793] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.853] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:17.954] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.033] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.093] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.133] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.213] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.374] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.433] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.534] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.592] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.654] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.732] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.854] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:18.932] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.133] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.212] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.292] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.352] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.412] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.572] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.673] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.732] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.813] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.894] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.933] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:19.975] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:20.253] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:20.494] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:20.533] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:20.714] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:20.773] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:20.853] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:31:34.331] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:31:53.773] [INFO/AudioReceiver]: FSK Fallback frame delivered via silence interval (173 bytes).
+[2026-08-19 13:31:53.774] [INFO/AudioTransferService]: Received raw binary frame (173 bytes). Passing to Assembler.
+[2026-08-19 13:31:53.776] [WARN/FileAssembler]: Failed to parse incoming acoustic binary frame (173 bytes).
+[2026-08-19 13:32:11.795] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:32:49.251] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:33:26.728] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:34:04.200] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:34:41.656] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:35:19.126] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:35:56.594] [INFO/AudioEncoder]: Generating GGWave DSP acoustic waveform (163 bytes)...
+[2026-08-19 13:36:21.269] [INFO/InCallService]: User requested disconnect of active call
+[2026-08-19 13:36:21.468] [INFO/InCallService]: Call State Changed: STATE_DISCONNECTED for number=+919562806984
+[2026-08-19 13:36:21.470] [INFO/InCallService]: Call DISCONNECTED. Stopping AudioTransferService.
+[2026-08-19 13:36:21.531] [INFO/InCallActivity]: updateTelecomCallState: state=7
+[2026-08-19 13:36:21.532] [INFO/InCallActivity]: Telecom Call disconnected/disconnecting
+[2026-08-19 13:36:21.641] [INFO/InCallService]: onCallRemoved: number=+919562806984
+[2026-08-19 13:36:21.775] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
+[2026-08-19 13:36:21.825] [WARN/AudioReceiver]: DIAGNOSTIC WARNING: Zero-energy PCM buffer detected (1 consecutive frames). Operating system call privacy filters may be silencing the microphone input.
+[2026-08-19 13:36:21.915] [INFO/AudioTransferService]: onStartCommand received action: com.example.ACTION_STOP_SERVICE
+[2026-08-19 13:36:22.078] [INFO/AudioTransferService]: Destroying AudioTransferService
+[2026-08-19 13:36:22.323] [INFO/AudioReceiver]: AudioReceiver stopped listening
+[2026-08-19 13:36:23.750] [INFO/InCallService]: AirSignalInCallService destroyed
