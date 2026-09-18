@@ -1,0 +1,1108 @@
+﻿2026-09-18T21:37:56.8388191Z ##[group]Run mkdir -p output
+mkdir -p output
+
+python3 - << 'EOF'
+import json, os, sys, re, base64, py_compile
+
+event_path = os.environ.get('GITHUB_EVENT_PATH')
+bpy_script = ''
+w1 = ''
+w2 = ''
+w3 = ''
+w4 = ''
+
+if event_path and os.path.exists(event_path):
+    try:
+        with open(event_path, 'r', encoding='utf-8') as ef:
+            event_data = json.load(ef)
+            payload = event_data.get('client_payload', {})
+            
+            # Support base64 model payloads if passed directly
+            input_model_b64 = payload.get('input_model_b64', '')
+            if input_model_b64 and input_model_b64.strip():
+                try:
+                    with open('input_model.glb', 'wb') as mf:
+                        mf.write(base64.b64decode(input_model_b64))
+                    os.makedirs('inputs', exist_ok=True)
+                    with open('inputs/input_model.glb', 'wb') as mf2:
+                        mf2.write(base64.b64decode(input_model_b64))
+                    print("Successfully unpacked user input 3D model: input_model.glb")
+                except Exception as me:
+                    print(f"Warning unpacking user model: {me}")
+
+            # Support uploaded custom scripts and dynamic payloads via Base64
+            if 'bpy_script_b64' in payload and payload['bpy_script_b64'].strip():
+                bpy_script = base64.b64decode(payload['bpy_script_b64']).decode('utf-8', errors='ignore')
+            elif 'bpy_script' in payload:
+                candidate = payload['bpy_script'].strip()
+                if candidate.startswith('b64:'):
+                    bpy_script = base64.b64decode(candidate[4:]).decode('utf-8', errors='ignore')
+                else:
+                    bpy_script = candidate
+                    
+            w1 = payload.get('w1StructureScript', payload.get('w1HeroScript', ''))
+            w2 = payload.get('w2DetailsScript', payload.get('w2EnvScript', ''))
+            w3 = payload.get('w3MaterialsScript', payload.get('w3LightScript', ''))
+            w4 = payload.get('w4CinematicsScript', '')
+    except Exception as e:
+        print(f"Note on GITHUB_EVENT_PATH read: {e}")
+
+# Fallback to environment variables
+if not bpy_script:
+    env_s = os.environ.get('BPY_SCRIPT', '').strip()
+    if env_s.startswith('b64:'):
+        try:
+            bpy_script = base64.b64decode(env_s[4:]).decode('utf-8', errors='ignore')
+        except Exception:
+            bpy_script = env_s
+    else:
+        bpy_script = env_s
+
+if not w1: w1 = os.environ.get('W1_STRUCTURE', '')
+if not w2: w2 = os.environ.get('W2_DETAILS', '')
+if not w3: w3 = os.environ.get('W3_MATERIALS', '')
+if not w4: w4 = os.environ.get('W4_CINEMATICS', '')
+
+# Assemble dynamic modular scripts if provided separately
+if not bpy_script.strip() and (w1.strip() or w2.strip() or w3.strip() or w4.strip()):
+    bpy_script = (
+        "import bpy, os, math, random, sys, traceback\n\n"
+        "os.makedirs('output', exist_ok=True)\n"
+        "bpy.ops.object.select_all(action='SELECT')\n"
+        "bpy.ops.object.delete(use_global=False)\n\n"
+        f"# --- W1: STRUCTURE ---\n{w1}\n\n"
+        f"# --- W2: DETAILS & PROPS ---\n{w2}\n\n"
+        f"# --- W3: PBR MATERIALS ---\n{w3}\n\n"
+        f"# --- W4: LIGHTING & CAM ---\n{w4}\n"
+    )
+
+if not bpy_script.strip():
+    err_msg = "FATAL ERROR: No Blender Python script provided in payload."
+    print(err_msg)
+    with open('output/error.txt', 'w', encoding='utf-8') as ef:
+        ef.write(err_msg + '\n')
+    sys.exit(1)
+
+# --- AST & REGEX AUTO-REPAIR PIPELINE ---
+
+# Auto-Repair 1: Neutralize unstable headless addon registrations (e.g. rigify, archimesh in 4.2)
+bpy_script = re.sub(r"addon_utils\.enable\(['\"](?:rigify|archimesh)['\"]\)", "pass", bpy_script)
+
+# Auto-Repair 2: Fix unquoted node lookups
+bpy_script = re.sub(r'nodes\.get\(\s*([A-Za-z0-9_ ]+)\s*\)', lambda m: f'nodes.get("{m.group(1).strip()}")' if '"' not in m.group(1) and "'" not in m.group(1) else m.group(0), bpy_script)
+
+# Auto-Repair 3: Fix unquoted f-strings
+bpy_script = re.sub(r'(?<=[=\s,(])f([a-zA-Z0-9_]+\{[^}"\n]+\}[a-zA-Z0-9_]*)', r'f"\1"', bpy_script)
+
+# Auto-Repair 4: Fix hallucinated operator names
+bpy_script = bpy_script.replace(".primitive_cube_create(", ".primitive_cube_add(")
+bpy_script = bpy_script.replace(".primitive_plane_create(", ".primitive_plane_add(")
+bpy_script = bpy_script.replace(".primitive_cylinder_create(", ".primitive_cylinder_add(")
+bpy_script = bpy_script.replace(".primitive_cone_create(", ".primitive_cone_add(")
+bpy_script = bpy_script.replace(".primitive_uv_sphere_create(", ".primitive_uv_sphere_add(")
+bpy_script = bpy_script.replace("bpy.ops.light.add(", "bpy.ops.object.light_add(")
+bpy_script = bpy_script.replace("bpy.ops.camera.add(", "bpy.ops.object.camera_add(")
+bpy_script = bpy_script.replace("bpy.ops.object.mesh.", "bpy.ops.mesh.")
+
+# Auto-Repair 5: Blender 4.2+ Principled BSDF socket name updates
+bpy_script = bpy_script.replace("['Transmission'].default_value", "['Transmission Weight'].default_value")
+bpy_script = bpy_script.replace("['Subsurface'].default_value", "['Subsurface Weight'].default_value")
+bpy_script = bpy_script.replace("['Specular'].default_value", "['Specular IOR Level'].default_value")
+bpy_script = bpy_script.replace("['BaseColor']", "['Base Color']")
+bpy_script = bpy_script.replace('["BaseColor"]', '["Base Color"]')
+bpy_script = bpy_script.replace("'BLENDER_EEVEE'", "'BLENDER_EEVEE_NEXT'")
+bpy_script = bpy_script.replace('"BLENDER_EEVEE"', '"BLENDER_EEVEE_NEXT"')
+
+# Auto-Repair 6: Blender 4.2+ AgX Color Management Look Enums (Fixes "High Contrast" enum error)
+look_fixes = [
+    (r"view_settings\.look\s*=\s*['\"]High Contrast['\"]", "view_settings.look = 'AgX - High Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Very High Contrast['\"]", "view_settings.look = 'AgX - Very High Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Medium High Contrast['\"]", "view_settings.look = 'AgX - Medium High Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Medium Low Contrast['\"]", "view_settings.look = 'AgX - Medium Low Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Low Contrast['\"]", "view_settings.look = 'AgX - Low Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Very Low Contrast['\"]", "view_settings.look = 'AgX - Very Low Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Base Contrast['\"]", "view_settings.look = 'AgX - Base Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Punchy['\"]", "view_settings.look = 'AgX - Punchy'")
+]
+for pattern, replacement in look_fixes:
+    bpy_script = re.sub(pattern, replacement, bpy_script)
+
+# Auto-Repair 7: Wrap view_settings.look in try-except block to ensure immunity from look enum failures
+bpy_script = re.sub(
+    r"^([ \t]*)(.*view_settings\.look\s*=.*)$",
+    r"\1try:\n\1    \2\n\1except Exception as _look_err: print(f'View settings look notice: {_look_err}')",
+    bpy_script,
+    flags=re.MULTILINE
+)
+
+# Auto-Repair 8: Redirect FBX imports to GLTF if converted or if model exists as GLB (Safe Quote Preservation)
+has_glb = os.path.exists('input_model.glb') or os.path.exists('inputs/input_model.glb')
+if has_glb:
+    bpy_script = bpy_script.replace("bpy.ops.import_scene.fbx(", "bpy.ops.import_scene.gltf(")
+    bpy_script = re.sub(r"(['\"])([^'\"\n]*?)\.fbx(['\"])", r"\1\2.glb\3", bpy_script)
+    print("Auto-Repair: Successfully redirected scene FBX import to converted GLB format.")
+
+# Auto-Repair 9: SCOPED Texture Type Fix (Never corrupt light or curve types!)
+valid_tex = {'NONE', 'BLEND', 'CLOUDS', 'DISTORTED_NOISE', 'IMAGE', 'MAGIC', 'MARBLE', 'MUSGRAVE', 'NOISE', 'STUCCI', 'VORONOI', 'WOOD'}
+def fix_texture_type(m):
+    prefix = m.group(1)
+    tex_val = m.group(2)
+    suffix = m.group(3)
+    if tex_val not in valid_tex:
+        tex_val = 'CLOUDS'
+    return prefix + tex_val + suffix
+bpy_script = re.sub(r"(textures\.new\([^)]*type\s*=\s*['\"])([A-Za-z0-9_]+)(['\"])", fix_texture_type, bpy_script)
+
+# Auto-Repair 10: Ensure standard GLTF/GLB export exists with baked modifiers
+if 'export_scene.gltf' not in bpy_script:
+    bpy_script += (
+        "\n\n# Standard Model Exporter with Baked Modifiers\n"
+        "import bpy, os\n"
+        "os.makedirs('output', exist_ok=True)\n"
+        "try:\n"
+        "    bpy.ops.export_scene.gltf(filepath='output/model.glb', export_format='GLB', export_apply=True, export_skins=True, export_animations=True)\n"
+        "    print('3D GLTF Export Successful: output/model.glb')\n"
+        "except Exception as ge: print(f'GLTF export warning: {ge}')\n"
+    )
+
+# Auto-Repair 11: Production Denoised Cycles Snapshot (16 samples for rapid cloud execution)
+if 'output/render.png' not in bpy_script:
+    bpy_script += (
+        "\n\n# High-Fidelity Denoised Viewport Snapshot\n"
+        "try:\n"
+        "    import os, math, bpy\n"
+        "    if not os.path.exists('output/render.png'):\n"
+        "        if not bpy.context.scene.camera:\n"
+        "            bpy.ops.object.camera_add(location=(5, -5, 4), rotation=(math.radians(60), 0, math.radians(45)))\n"
+        "            bpy.context.scene.camera = bpy.context.active_object\n"
+        "        bpy.context.scene.render.engine = 'CYCLES'\n"
+        "        bpy.context.scene.cycles.device = 'CPU'\n"
+        "        bpy.context.scene.cycles.samples = 16\n"
+        "        bpy.context.scene.cycles.use_denoising = True\n"
+        "        bpy.context.scene.render.resolution_x = 1280\n"
+        "        bpy.context.scene.render.resolution_y = 720\n"
+        "        bpy.context.scene.render.filepath = 'output/render.png'\n"
+        "        bpy.ops.render.render(write_still=True)\n"
+        "        print('Production Cycles snapshot complete: output/render.png')\n"
+        "except Exception as snap_e: print(f'Snapshot generation note: {snap_e}')\n"
+    )
+
+# Auto-Repair 12: Project State Checkpoint for Option B2 Interactive Sessions
+if 'bpy.ops.wm.save_as_mainfile' not in bpy_script:
+    bpy_script += (
+        "\n\n# Save Checkpoint Project for Interactive Iteration\n"
+        "try:\n"
+        "    import bpy\n"
+        "    bpy.ops.wm.save_as_mainfile(filepath='output/project.blend')\n"
+        "    print('Saved project checkpoint: output/project.blend')\n"
+        "except Exception as pe: print(f'Blend save note: {pe}')\n"
+    )
+
+# Auto-Repair 13: Fix Background shader socket name ('Color' -> 'Background')
+bpy_script = re.sub(r"(\.outputs\[['\"])Color(['\"]\]\s*,\s*[^,\n]*?inputs\[['\"])Surface(['\"]\])", r"\1Background\2Surface\3", bpy_script)
+bpy_script = re.sub(r"(bg(?:_node)?\.outputs\[['\"])Color(['\"]\])", r"\1Background\2", bpy_script)
+
+# Auto-Repair 14: Neutralize read-only sequencer_colorspace_settings assignment
+bpy_script = re.sub(r"^[ \t]*.*?\.sequencer_colorspace_settings\s*=.*$", "pass", bpy_script, flags=re.MULTILINE)
+
+# Auto-Repair 15: Fix scene.exposure -> scene.view_settings.exposure
+bpy_script = re.sub(r"(\bscene)\.exposure\b", r"\1.view_settings.exposure", bpy_script)
+
+# Auto-Repair 16: Additional Principled BSDF socket link protections
+bpy_script = re.sub(r"inputs\[['\"]Transmission['\"]\]", "inputs['Transmission Weight']", bpy_script)
+bpy_script = re.sub(r"inputs\[['\"]Subsurface['\"]\]", "inputs['Subsurface Weight']", bpy_script)
+bpy_script = re.sub(r"inputs\[['\"]Specular['\"]\]", "inputs['Specular IOR Level']", bpy_script)
+
+with open('run_task.py', 'w', encoding='utf-8') as f:
+    f.write(bpy_script)
+
+try:
+    py_compile.compile('run_task.py', doraise=True)
+    print("Python Syntax Pre-Check: PASSED")
+except py_compile.PyCompileError as pe:
+    print(f"Syntax Validation Warning: {pe}")
+
+EOF
+
+# Run headless Blender wrapped inside virtual X display buffer for full OpenGL shader compilation
+xvfb-run -a --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render" /opt/blender/blender -b -P run_task.py 2>&1 | tee output/blender_execution.log || true
+
+# Extract clean Python traceback for Solution B if any exception occurred
+python3 - << 'EOF'
+import re, os
+if os.path.exists('output/blender_execution.log'):
+    with open('output/blender_execution.log', 'r', encoding='utf-8', errors='ignore') as lf:
+        content = lf.read()
+    
+    tb_match = re.search(r'(Traceback \(most recent call last\):[\s\S]+?(?:[A-Za-z0-9_]+Error|[A-Za-z0-9_]+Exception):[^\n]+)', content)
+    if tb_match:
+        traceback_str = tb_match.group(1).strip()
+        with open('output/error.txt', 'w', encoding='utf-8') as ef:
+            ef.write(traceback_str + '\n')
+        print("EXTRACTED TRACEBACK TO error.txt:\n" + traceback_str)
+EOF
+
+# Normalize any exported .glb to model.glb so the Android app can consume it
+if [ ! -f output/model.glb ]; then
+  FIRST_GLB=$(ls output/*.glb 2>/dev/null | head -n 1)
+  if [ -n "$FIRST_GLB" ]; then
+    cp "$FIRST_GLB" output/model.glb
+    echo "Normalized $FIRST_GLB -> output/model.glb"
+  fi
+fi
+
+# Normalize any rendered .mp4 to cinematic.mp4
+if [ ! -f output/cinematic.mp4 ]; then
+  FIRST_MP4=$(ls output/*.mp4 2>/dev/null | head -n 1)
+  if [ -n "$FIRST_MP4" ]; then
+    cp "$FIRST_MP4" output/cinematic.mp4
+    echo "Normalized $FIRST_MP4 -> output/cinematic.mp4"
+  fi
+fi
+
+# Verify output assets
+if [ -f output/model.glb ]; then
+  echo "SUCCESS: model.glb generated successfully."
+  if [ -f output/cinematic.mp4 ]; then
+    echo "SUCCESS: cinematic.mp4 video generated successfully ($(stat -c%s output/cinematic.mp4) bytes)."
+  fi
+  exit 0
+else
+  if [ ! -f output/error.txt ]; then
+    echo "ERROR: Blender execution halted without generating model.glb" > output/error.txt
+    tail -n 40 output/blender_execution.log >> output/error.txt
+  fi
+  exit 1
+fi
+shell: /usr/bin/bash -e {0}
+env:
+  BPY_SCRIPT: b64:IyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KIyBWeW5hcmEgQXV0b25vbW91cyAzRCBTdHVkaW8gLSBEeW5hbWljIEFJIEJ1aWxkCiMgU2NlbmUgVHlwZTogYXV0b21vdGl2ZV9hY3Rpb25fc2VxdWVuY2UKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCmltcG9ydCBicHkKaW1wb3J0IG9zCmltcG9ydCBtYXRoCmltcG9ydCByYW5kb20KaW1wb3J0IHN5cwppbXBvcnQgYWRkb25fdXRpbHMKCnRyeToKICAgIGFkZG9uX3V0aWxzLmVuYWJsZSgnYXJjaGltZXNoJykKICAgIGFkZG9uX3V0aWxzLmVuYWJsZSgncmlnaWZ5JykKZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgcHJpbnQoZidBZGRvbiBhY3RpdmF0aW9uIG5vdGU6IHtlfScpCgpvcy5tYWtlZGlycygnb3V0cHV0JywgZXhpc3Rfb2s9VHJ1ZSkKCiMgUmVzZXQgc2NlbmUgY29tcGxldGVseQpicHkub3BzLm9iamVjdC5zZWxlY3RfYWxsKGFjdGlvbj0nU0VMRUNUJykKYnB5Lm9wcy5vYmplY3QuZGVsZXRlKHVzZV9nbG9iYWw9RmFsc2UpCgojIC0tLSBEWU5BTUlDIEFJIE1FU0ggJiBTQ0VORSBHRU5FUkFUSU9OIC0tLQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyAxLiBDTEVBTiBTQ0VORSAmIFNFVFVQCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpkZWYgY2xlYW5fc2NlbmUoKToKICAgIGJweS5vcHMub2JqZWN0LnNlbGVjdF9hbGwoYWN0aW9uPSdTRUxFQ1QnKQogICAgYnB5Lm9wcy5vYmplY3QuZGVsZXRlKCkKICAgIGZvciBibG9jayBpbiAoYnB5LmRhdGEubWVzaGVzLCBicHkuZGF0YS5tYXRlcmlhbHMsIGJweS5kYXRhLnRleHR1cmVzLCBicHkuZGF0YS5pbWFnZXMsIGJweS5kYXRhLmNhbWVyYXMsIGJweS5kYXRhLmxpZ2h0cyk6CiAgICAgICAgZm9yIGl0ZW0gaW4gYmxvY2s6CiAgICAgICAgICAgIGJsb2NrLnJlbW92ZShpdGVtKQoKY2xlYW5fc2NlbmUoKQoKIyBTZXQgU2NlbmUgRW5naW5lICYgQ29sb3IgTWFuYWdlbWVudApzY2VuZSA9IGJweS5jb250ZXh0LnNjZW5lCnNjZW5lLnJlbmRlci5lbmdpbmUgPSAnQ1lDTEVTJwpzY2VuZS5jeWNsZXMuc2FtcGxlcyA9IDEyOApzY2VuZS5jeWNsZXMudXNlX2Rlbm9pc2luZyA9IFRydWUKCiMgQ29sb3IgTWFuYWdlbWVudCAoQWdYIEhpZ2ggQ29udHJhc3Qgc2V0dXApCnNjZW5lLnZpZXdfc2V0dGluZ3Mudmlld190cmFuc2Zvcm0gPSAnQWdYJwpzY2VuZS52aWV3X3NldHRpbmdzLmxvb2sgPSAnQWdYIC0gSGlnaCBDb250cmFzdCcKc2NlbmUudmlld19zZXR0aW5ncy5leHBvc3VyZSA9IDAuMgoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgMi4gSU1QT1JUIEhFUk8gTU9ERUwgKEF1ZGkgUjggLyBBc3NldCkKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCnByaW50KCJJbXBvcnRpbmcgYXNzZXQgZnJvbSBpbnB1dHMvaW5wdXRfbW9kZWwuZ2xiLi4uIikKaWYgb3MucGF0aC5leGlzdHMoJ2lucHV0cy9pbnB1dF9tb2RlbC5nbGInKToKICAgIGJweS5vcHMuaW1wb3J0X3NjZW5lLmdsdGYoZmlsZXBhdGg9J2lucHV0cy9pbnB1dF9tb2RlbC5nbGInKQplbGlmIG9zLnBhdGguZXhpc3RzKCdpbnB1dF9tb2RlbC5nbGInKToKICAgIGJweS5vcHMuaW1wb3J0X3NjZW5lLmdsdGYoZmlsZXBhdGg9J2lucHV0X21vZGVsLmdsYicpCmVsaWYgb3MucGF0aC5leGlzdHMoJ2lucHV0cy9pbnB1dF9tb2RlbC5mYngnKToKICAgIHRyeToKICAgICAgICBicHkub3BzLmltcG9ydF9zY2VuZS5nbHRmKGZpbGVwYXRoPSdpbnB1dHMvaW5wdXRfbW9kZWwuZ2xiJykKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZmU6CiAgICAgICAgcHJpbnQoZiJGQlggY29udmVyc2lvbiBub3RlOiB7ZmV9IikKCmltcG9ydGVkX29ianMgPSBbb2JqIGZvciBvYmogaW4gYnB5LmNvbnRleHQuc2VsZWN0ZWRfb2JqZWN0c10KcHJpbnQoZiJJbXBvcnRlZCBvYmplY3RzOiB7bGVuKGltcG9ydGVkX29ianMpfSIpCgojIENyZWF0ZSBhIG1hc3RlciBncm91cCBlbXB0eSBmb3IgdGhlIGNhcgpjYXJfcm9vdCA9IGJweS5kYXRhLm9iamVjdHMubmV3KCJDYXJfUm9vdCIsIE5vbmUpCnNjZW5lLmNvbGxlY3Rpb24ub2JqZWN0cy5saW5rKGNhcl9yb290KQoKZm9yIG9iaiBpbiBpbXBvcnRlZF9vYmpzOgogICAgaWYgb2JqLnBhcmVudCBpcyBOb25lOgogICAgICAgIG9iai5wYXJlbnQgPSBjYXJfcm9vdAoKIyBBbGlnbi9TY2FsZSBoZXJvIG1vZGVsIChhc3N1bWUgc3RhbmRhcmQgb3JpZW50YXRpb24sIGNlbnRlciBvcmlnaW4pCmNhcl9yb290LmxvY2F0aW9uID0gKDAuMCwgMC4wLCAwLjApCgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyAzLiBNQVRFUklBTFMgU0VUVVAKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCmRlZiBjcmVhdGVfYXNwaGFsdF9tYXRlcmlhbCgpOgogICAgbWF0ID0gYnB5LmRhdGEubWF0ZXJpYWxzLm5ldyhuYW1lPSJIaWdod2F5X0FzcGhhbHQiKQogICAgbWF0LnVzZV9ub2RlcyA9IFRydWUKICAgIG5vZGVzID0gbWF0Lm5vZGVfdHJlZS5ub2RlcwogICAgbGlua3MgPSBtYXQubm9kZV90cmVlLmxpbmtzCiAgICBub2Rlcy5jbGVhcigpCiAgICAKICAgICMgUHJpbmNpcGxlZCBCU0RGCiAgICBic2RmID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCc2RmUHJpbmNpcGxlZCcpCiAgICBic2RmLmxvY2F0aW9uID0gKDAsIDApCiAgICBic2RmLmlucHV0c1snQmFzZSBDb2xvciddLmRlZmF1bHRfdmFsdWUgPSAoMC4wNCwgMC4wNCwgMC4wNCwgMS4wKQogICAgYnNkZi5pbnB1dHNbJ1JvdWdobmVzcyddLmRlZmF1bHRfdmFsdWUgPSAwLjYKICAgIGJzZGYuaW5wdXRzWydNZXRhbGxpYyddLmRlZmF1bHRfdmFsdWUgPSAwLjA1CiAgICAKICAgICMgTm9pc2UgZm9yIHJvdWdobmVzcyB2YXJpYXRpb24KICAgIG5vaXNlID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVUZXhOb2lzZScpCiAgICBub2lzZS5sb2NhdGlvbiA9ICgtMzAwLCAwKQogICAgbm9pc2UuaW5wdXRzWydTY2FsZSddLmRlZmF1bHRfdmFsdWUgPSAyNTAuMAogICAgCiAgICBidW1wID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCdW1wJykKICAgIGJ1bXAubG9jYXRpb24gPSAoLTE1MCwgLTIwMCkKICAgIGJ1bXAuaW5wdXRzWydTdHJlbmd0aCddLmRlZmF1bHRfdmFsdWUgPSAwLjA1CiAgICAKICAgIGxpbmtzLm5ldyhub2lzZS5vdXRwdXRzWydGYWMnXSwgYnVtcC5pbnB1dHNbJ0hlaWdodCddKQogICAgbGlua3MubmV3KGJ1bXAub3V0cHV0c1snTm9ybWFsJ10sIGJzZGYuaW5wdXRzWydOb3JtYWwnXSkKICAgIAogICAgb3V0cHV0ID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVPdXRwdXRNYXRlcmlhbCcpCiAgICBvdXRwdXQubG9jYXRpb24gPSAoMzAwLCAwKQogICAgbGlua3MubmV3KGJzZGYub3V0cHV0c1snQlNERiddLCBvdXRwdXQuaW5wdXRzWydTdXJmYWNlJ10pCiAgICByZXR1cm4gbWF0CgpkZWYgY3JlYXRlX2d1YXJkcmFpbF9tYXRlcmlhbCgpOgogICAgbWF0ID0gYnB5LmRhdGEubWF0ZXJpYWxzLm5ldyhuYW1lPSJHdWFyZHJhaWxfTWV0YWwiKQogICAgbWF0LnVzZV9ub2RlcyA9IFRydWUKICAgIG5vZGVzID0gbWF0Lm5vZGVfdHJlZS5ub2RlcwogICAgbGlua3MgPSBtYXQubm9kZV90cmVlLmxpbmtzCiAgICBub2Rlcy5jbGVhcigpCiAgICAKICAgIGJzZGYgPSBub2Rlcy5uZXcodHlwZT0nU2hhZGVyTm9kZUJzZGZQcmluY2lwbGVkJykKICAgIGJzZGYubG9jYXRpb24gPSAoMCwgMCkKICAgIGJzZGYuaW5wdXRzWydCYXNlIENvbG9yJ10uZGVmYXVsdF92YWx1ZSA9ICgwLjcsIDAuNywgMC43NSwgMS4wKQogICAgYnNkZi5pbnB1dHNbJ01ldGFsbGljJ10uZGVmYXVsdF92YWx1ZSA9IDAuOTUKICAgIGJzZGYuaW5wdXRzWydSb3VnaG5lc3MnXS5kZWZhdWx0X3ZhbHVlID0gMC4xNQogICAgCiAgICBvdXRwdXQgPSBub2Rlcy5uZXcodHlwZT0nU2hhZGVyTm9kZU91dHB1dE1hdGVyaWFsJykKICAgIG91dHB1dC5sb2NhdGlvbiA9ICgzMDAsIDApCiAgICBsaW5rcy5uZXcoYnNkZi5vdXRwdXRzWydCU0RGJ10sIG91dHB1dC5pbnB1dHNbJ1N1cmZhY2UnXSkKICAgIHJldHVybiBtYXQKCmRlZiBjcmVhdGVfc3RyaXBlX21hdGVyaWFsKCk6CiAgICBtYXQgPSBicHkuZGF0YS5tYXRlcmlhbHMubmV3KG5hbWU9IkxhbmVfU3RyaXBlIikKICAgIG1hdC51c2Vfbm9kZXMgPSBUcnVlCiAgICBub2RlcyA9IG1hdC5ub2RlX3RyZWUubm9kZXMKICAgIGxpbmtzID0gbWF0Lm5vZGVfdHJlZS5saW5rcwogICAgbm9kZXMuY2xlYXIoKQogICAgCiAgICBic2RmID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCc2RmUHJpbmNpcGxlZCcpCiAgICBic2RmLmxvY2F0aW9uID0gKDAsIDApCiAgICBic2RmLmlucHV0c1snQmFzZSBDb2xvciddLmRlZmF1bHRfdmFsdWUgPSAoMC45LCAwLjg1LCAwLjcsIDEuMCkKICAgIGJzZGYuaW5wdXRzWydSb3VnaG5lc3MnXS5kZWZhdWx0X3ZhbHVlID0gMC40CiAgICAKICAgIG91dHB1dCA9IG5vZGVzLm5ldyh0eXBlPSdTaGFkZXJOb2RlT3V0cHV0TWF0ZXJpYWwnKQogICAgb3V0cHV0LmxvY2F0aW9uID0gKDMwMCwgMCkKICAgIGxpbmtzLm5ldyhic2RmLm91dHB1dHNbJ0JTREYnXSwgb3V0cHV0LmlucHV0c1snU3VyZmFjZSddKQogICAgcmV0dXJuIG1hdAoKYXNwaGFsdF9tYXQgPSBjcmVhdGVfYXNwaGFsdF9tYXRlcmlhbCgpCmd1YXJkcmFpbF9tYXQgPSBjcmVhdGVfZ3VhcmRyYWlsX21hdGVyaWFsKCkKc3RyaXBlX21hdCA9IGNyZWF0ZV9zdHJpcGVfbWF0ZXJpYWwoKQoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgNC4gRU5WSVJPTk1FTlQgJiBISUdIV0FZIEdFT01FVFJZCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQojIENvYXN0YWwgSGlnaHdheSBBc3BoYWx0IFN0cmlwCmJweS5vcHMubWVzaC5wcmltaXRpdmVfcGxhbmVfYWRkKHNpemU9MTAwLjAsIGxvY2F0aW9uPSgwLCAwLCAwKSkKaGlnaHdheSA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKaGlnaHdheS5uYW1lID0gIkhpZ2h3YXlfUm9hZCIKaGlnaHdheS5zY2FsZSA9ICgwLjMsIDE1LjAsIDEuMCkgIyBOYXJyb3cgbG9uZyByb2FkCmhpZ2h3YXkuZGF0YS5tYXRlcmlhbHMuYXBwZW5kKGFzcGhhbHRfbWF0KQoKIyBMYW5lIFN0cmlwZQpicHkub3BzLm1lc2gucHJpbWl0aXZlX3BsYW5lX2FkZChzaXplPTEuMCwgbG9jYXRpb249KDAsIDAsIDAuMDAxKSkKc3RyaXBlID0gYnB5LmNvbnRleHQuYWN0aXZlX29iamVjdApzdHJpcGUubmFtZSA9ICJMYW5lX1N0cmlwZSIKc3RyaXBlLnNjYWxlID0gKDAuMDUsIDUwLjAsIDEuMCkKc3RyaXBlLmRhdGEubWF0ZXJpYWxzLmFwcGVuZChzdHJpcGVfbWF0KQoKIyBNZXRhbGxpYyBHdWFyZHJhaWwgKFJpZ2h0IHNpZGUpCmJweS5vcHMubWVzaC5wcmltaXRpdmVfY3ViZV9hZGQoc2l6ZT0xLjAsIGxvY2F0aW9uPSgyLjIsIDAsIDAuNSkpCmd1YXJkcmFpbCA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKZ3VhcmRyYWlsLm5hbWUgPSAiSGlnaHdheV9HdWFyZHJhaWwiCmd1YXJkcmFpbC5zY2FsZSA9ICgwLjEsIDE1MC4wLCAwLjYpCmd1YXJkcmFpbC5kYXRhLm1hdGVyaWFscy5hcHBlbmQoZ3VhcmRyYWlsX21hdCkKCiMgRW52aXJvbm1lbnQgcHJvcHMgKFNwZWVkIHN0cmVha3MgLyBtb3Rpb24gcGlsbGFycyBhbG9uZyB0aGUgc2lkZXMpCnJhbmRvbS5zZWVkKDMwMykKZm9yIGkgaW4gcmFuZ2UoLTUwLCA1MCwgNCk6CiAgICBicHkub3BzLm1lc2gucHJpbWl0aXZlX2N5bGluZGVyX2FkZChyYWRpdXM9MC4xLCBkZXB0aD0zLjAsIGxvY2F0aW9uPSgtNC4wLCBmbG9hdChpKSwgMS41KSkKICAgIHBvbGUgPSBicHkuY29udGV4dC5hY3RpdmVfb2JqZWN0CiAgICBwb2xlLm5hbWUgPSBmIkVudmlyb25tZW50X1BvbGVfe2l9IgogICAgbWF0X3BvbGUgPSBicHkuZGF0YS5tYXRlcmlhbHMubmV3KG5hbWU9ZiJQb2xlTWF0X3tpfSIpCiAgICBtYXRfcG9sZS51c2Vfbm9kZXMgPSBUcnVlCiAgICBtYXRfcG9sZS5ub2RlX3RyZWUubm9kZXNbJ1ByaW5jaXBsZWQgQlNERiddLmlucHV0c1snQmFzZSBDb2xvciddLmRlZmF1bHRfdmFsdWUgPSAoMC4xLCAwLjEsIDAuMSwgMS4wKQogICAgcG9sZS5kYXRhLm1hdGVyaWFscy5hcHBlbmQobWF0X3BvbGUpCgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyA1LiBMSUdIVElORyAoR29sZGVuIEhvdXIgU3VuICsgU2t5IEF0bW9zcGhlcmUpCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQojIFN1biBMaWdodCAoTG93LWVsZXZhdGlvbiByaW0gbGlnaHQgYW5nbGUpCmJweS5vcHMub2JqZWN0LmxpZ2h0X2FkZCh0eXBlPSdTVU4nLCBsb2NhdGlvbj0oLTIwLjAsIC0xMC4wLCA1LjApKQpzdW4gPSBicHkuY29udGV4dC5hY3RpdmVfb2JqZWN0CnN1bi5uYW1lID0gIkdvbGRlbl9Ib3VyX1N1biIKc3VuLmRhdGEuZW5lcmd5ID0gNS41CnN1bi5kYXRhLmNvbG9yID0gKDEuMCwgMC43LCAwLjQpICMgV2FybSBnb2xkZW4gc3Vuc2V0IGh1ZQpzdW4ucm90YXRpb25fZXVsZXIgPSAobWF0aC5yYWRpYW5zKDY1LjApLCBtYXRoLnJhZGlhbnMoMTUuMCksIG1hdGgucmFkaWFucygtNDUuMCkpCgojIFdvcmxkIEJhY2tncm91bmQgU2V0dXAgKFNreSBncmFkaWVudCkKd29ybGQgPSBicHkuY29udGV4dC5zY2VuZS53b3JsZAppZiB3b3JsZCBpcyBOb25lOgogICAgd29ybGQgPSBicHkuZGF0YS53b3JsZHMubmV3KCJIaWdod2F5X1dvcmxkIikKICAgIGJweS5jb250ZXh0LnNjZW5lLndvcmxkID0gd29ybGQKd29ybGQudXNlX25vZGVzID0gVHJ1ZQoKd25vZGVzID0gd29ybGQubm9kZV90cmVlLm5vZGVzCndsaW5rcyA9IHdvcmxkLm5vZGVfdHJlZS5saW5rcwp3bm9kZXMuY2xlYXIoKQoKYmcgPSB3bm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCYWNrZ3JvdW5kJykKYmcuaW5wdXRzWydTdHJlbmd0aCddLmRlZmF1bHRfdmFsdWUgPSAxLjIKc2t5X3RleCA9IHdub2Rlcy5uZXcodHlwZT0nU2hhZGVyTm9kZVRleFNreScpCnNreV90ZXguc2t5X3R5cGUgPSAnSE9TRUtfV0lMS0lFJwpza3lfdGV4LnN1bl9kaXJlY3Rpb24gPSBzdW4ubG9jYXRpb24ubm9ybWFsaXplZCgpCgpvdXRfd29ybGQgPSB3bm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVPdXRwdXRXb3JsZCcpCndsaW5rcy5uZXcoc2t5X3RleC5vdXRwdXRzWydDb2xvciddLCBiZy5pbnB1dHNbJ0NvbG9yJ10pCndsaW5rcy5uZXcoYmcub3V0cHV0c1snQmFja2dyb3VuZCddLCBvdXRfd29ybGQuaW5wdXRzWydTdXJmYWNlJ10pCgojIFZvbHVtZXRyaWMgRm9nIChBdG1vc3BoZXJpYyBoYXplKQppZiBUcnVlOgogICAgYnB5Lm9wcy5tZXNoLnByaW1pdGl2ZV9jdWJlX2FkZChzaXplPTEwMC4wLCBsb2NhdGlvbj0oMCwgMCwgNSkpCiAgICBmb2dfdm9sdW1lID0gYnB5LmNvbnRleHQuYWN0aXZlX29iamVjdAogICAgZm9nX3ZvbHVtZS5uYW1lID0gIkF0bW9zcGhlcmljX0ZvZyIKICAgIGZvZ19tYXQgPSBicHkuZGF0YS5tYXRlcmlhbHMubmV3KG5hbWU9IlZvbHVtZXRyaWNfRm9nX01hdCIpCiAgICBmb2dfbWF0LnVzZV9ub2RlcyA9IFRydWUKICAgIGZfbm9kZXMgPSBmb2dfbWF0Lm5vZGVfdHJlZS5ub2RlcwogICAgZl9saW5rcyA9IGZvZ19tYXQubm9kZV90cmVlLmxpbmtzCiAgICBmX25vZGVzLmNsZWFyKCkKICAgIAogICAgdm9sX2JzZGYgPSBmX25vZGVzLm5ldyh0eXBlPSdTaGFkZXJOb2RlVm9sdW1lUHJpbmNpcGxlZCcpCiAgICB2b2xfYnNkZi5pbnB1dHNbJ0RlbnNpdHknXS5kZWZhdWx0X3ZhbHVlID0gMC4wMTIKICAgIHZvbF9ic2RmLmlucHV0c1snQ29sb3InXS5kZWZhdWx0X3ZhbHVlID0gKDEuMCwgMC44LCAwLjYsIDEuMCkKICAgIHZvbF9vdXQgPSBmX25vZGVzLm5ldyh0eXBlPSdTaGFkZXJOb2RlT3V0cHV0TWF0ZXJpYWwnKQogICAgZl9saW5rcy5uZXcodm9sX2JzZGYub3V0cHV0c1snVm9sdW1lJ10sIHZvbF9vdXQuaW5wdXRzWydTdXJmYWNlJ10pCiAgICBmb2dfdm9sdW1lLmRhdGEubWF0ZXJpYWxzLmFwcGVuZChmb2dfbWF0KQoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgNi4gQ0FNRVJBICYgQ09NUE9TSVRJT04gKExvdy1hbmdsZSB0cmFja2luZyByaWcsIGYvMi44KQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KYnB5Lm9wcy5vYmplY3QuY2FtZXJhX2FkZChsb2NhdGlvbj0oLTAuOSwgLTEuMiwgMC4yNSkpCmNhbSA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKY2FtLm5hbWUgPSAiQ2luZW1hdGljX1RyYWNraW5nX0NhbWVyYSIKY2FtLmRhdGEubGVucyA9IDIwLjAgIyAyMG1tIHVsdHJhLXdpZGUgdHJhY2tpbmcgbGVucwpjYW0ucm90YXRpb25fZXVsZXIgPSAobWF0aC5yYWRpYW5zKDgyLjApLCBtYXRoLnJhZGlhbnMoMC4wKSwgbWF0aC5yYWRpYW5zKDI1LjApKQoKc2NlbmUuY2FtZXJhID0gY2FtCgojIERlcHRoIG9mIEZpZWxkIGNvbmZpZ3VyYXRpb24gZm9jdXNlZCBvbiByZWFyIHdoZWVsIGFyY2ggcmltCiMgRW1wdHkgdGFyZ2V0IGZvciBwcmVjaXNlIGZvY3VzIHRyYWNraW5nCmJweS5vcHMub2JqZWN0LmVtcHR5X2FkZCh0eXBlPSdQTEFJTl9BWEVTJywgbG9jYXRpb249KC0wLjcsIC0xLjAsIDAuMykpCmZvY3VzX3RhcmdldCA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKZm9jdXNfdGFyZ2V0Lm5hbWUgPSAiQ2FtZXJhX0ZvY3VzX1RhcmdldCIKCmNhbS5kYXRhLmRvZi51c2VfZG9mID0gVHJ1ZQpjYW0uZGF0YS5kb2YuZm9jdXNfb2JqZWN0ID0gZm9jdXNfdGFyZ2V0CmNhbS5kYXRhLmRvZi5hcGVydHVyZV9mc3RvcCA9IDIuOAoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgNy4gSElHSC1TUEVFRCBBTklNQVRJT04gJiBNT1RJT04gQkxVUgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyBFbmFibGUgMTgwLWRlZ3JlZSBvcHRpY2FsIHNodXR0ZXIgbW90aW9uIGJsdXIKc2NlbmUucmVuZGVyLnVzZV9tb3Rpb25fYmx1ciA9IFRydWUKc2NlbmUucmVuZGVyLm1vdGlvbl9ibHVyX3NodXR0ZXIgPSAwLjUgIyAxODAtZGVncmVlIHNodXR0ZXIgYXQgc3RhbmRhcmQgZnJhbWUgcmF0ZXMKCnNjZW5lLmZyYW1lX3N0YXJ0ID0gMQpzY2VuZS5mcmFtZV9lbmQgPSA2MAoKIyBBbmltYXRlIEVudmlyb25tZW50IG1vdmluZyBwYXN0IHRoZSBjYXIgdG8gc2ltdWxhdGUgZXh0cmVtZSB2ZWxvY2l0eQpoaWdod2F5LmxvY2F0aW9uLnogPSAwLjAKaGlnaHdheS5rZXlmcmFtZV9pbnNlcnQoZGF0YV9wYXRoPSJsb2NhdGlvbiIsIGZyYW1lPTEpCmhpZ2h3YXkubG9jYXRpb24ueSA9IC0xMDAuMApoaWdod2F5LmtleWZyYW1lX2luc2VydChkYXRhX3BhdGg9ImxvY2F0aW9uIiwgZnJhbWU9NjApCgpzdHJpcGUubG9jYXRpb24ueSA9IDAuMApzdHJpcGUua2V5ZnJhbWVfaW5zZXJ0KGRhdGFfcGF0aD0ibG9jYXRpb24iLCBmcmFtZT0xKQpzdHJpcGUubG9jYXRpb24ueSA9IC0xMDAuMApzdHJpcGUua2V5ZnJhbWVfaW5zZXJ0KGRhdGFfcGF0aD0ibG9jYXRpb24iLCBmcmFtZT02MCkKCiMgTWFrZSBhbmltYXRpb24gbGluZWFyIGZvciBjb25zdGFudCBoaWdoLXNwZWVkIHRlYXJpbmcgbW90aW9uCmlmIGhpZ2h3YXkuYW5pbWF0aW9uX2RhdGEgYW5kIGhpZ2h3YXkuYW5pbWF0aW9uX2RhdGEuYWN0aW9uOgogICAgZm9yIGZjIGluIGhpZ2h3YXkuYW5pbWF0aW9uX2RhdGEuYWN0aW9uLmZjdXJ2ZXM6CiAgICAgICAgZm9yIHAgaW4gZmMua2V5ZnJhbWVfcG9pbnRzOgogICAgICAgICAgICBwLmludGVycG9sYXRpb24gPSAnTElORUFSJwoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgOC4gRklOQUwgUkVOREVSIENPTkZJR1VSQVRJT04KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCnNjZW5lLnJlbmRlci5yZXNvbHV0aW9uX3ggPSAxOTIwCnNjZW5lLnJlbmRlci5yZXNvbHV0aW9uX3kgPSAxMDgwCnNjZW5lLnJlbmRlci5yZXNvbHV0aW9uX3BlcmNlbnRhZ2UgPSAxMDAKCnByaW50KCJDaW5lbWF0aWMgaGlnaHdheSBhY3Rpb24gc2VxdWVuY2Ugc3VjY2Vzc2Z1bGx5IGNvbnN0cnVjdGVkLiIpCgojIC0tLSBDSU5FTUFUSUMgTElHSFRJTkcgJiBDQU1FUkEgUklHIC0tLQp0cnk6CiAgICBpZiBub3QgYnB5LmNvbnRleHQuc2NlbmUuY2FtZXJhOgogICAgICAgIGNhbV9kYXRhID0gYnB5LmRhdGEuY2FtZXJhcy5uZXcoJ0NpbmVtYXRpY0NhbWVyYScpCiAgICAgICAgY2FtX2RhdGEubGVucyA9IDIwLjAKICAgICAgICBjYW1fZGF0YS5kb2YudXNlX2RvZiA9IFRydWUKICAgICAgICBjYW1fZGF0YS5kb2YuYXBlcnR1cmVfZnN0b3AgPSAyLjgKICAgICAgICBjYW1fb2JqID0gYnB5LmRhdGEub2JqZWN0cy5uZXcoJ0NhbWVyYScsIGNhbV9kYXRhKQogICAgICAgIGJweS5jb250ZXh0LmNvbGxlY3Rpb24ub2JqZWN0cy5saW5rKGNhbV9vYmopCiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUuY2FtZXJhID0gY2FtX29iagogICAgICAgIGNhbV9vYmoubG9jYXRpb24gPSAoMC45NSwgLTEuOCwgMC4yNSkKICAgICAgICBjYW1fb2JqLnJvdGF0aW9uX2V1bGVyID0gKG1hdGgucmFkaWFucyg3MiksIDAsIDApCmV4Y2VwdCBFeGNlcHRpb24gYXMgY2U6IHByaW50KGYnQ2FtZXJhIHNldHVwIG5vdGU6IHtjZX0nKQoKdHJ5OgogICAgc3VuX2RhdGEgPSBicHkuZGF0YS5saWdodHMubmV3KCdTdW4nLCB0eXBlPSdTVU4nKQogICAgc3VuX2RhdGEuZW5lcmd5ID0gNS41CiAgICBzdW5fb2JqID0gYnB5LmRhdGEub2JqZWN0cy5uZXcoJ1N1bkxpZ2h0Jywgc3VuX2RhdGEpCiAgICBicHkuY29udGV4dC5jb2xsZWN0aW9uLm9iamVjdHMubGluayhzdW5fb2JqKQogICAgc3VuX29iai5yb3RhdGlvbl9ldWxlciA9IChtYXRoLnJhZGlhbnMoNDUpLCBtYXRoLnJhZGlhbnMoMTUpLCBtYXRoLnJhZGlhbnMoLTMwKSkKZXhjZXB0IEV4Y2VwdGlvbiBhcyBsZTogcHJpbnQoZidMaWdodGluZyBzZXR1cCBub3RlOiB7bGV9JykKCiMgLS0tIENPTE9SIE1BTkFHRU1FTlQgKEJMRU5ERVIgNC4yKyBBR1gpIC0tLQp0cnk6CiAgICBicHkuY29udGV4dC5zY2VuZS52aWV3X3NldHRpbmdzLnZpZXdfdHJhbnNmb3JtID0gJ0FnWCcKICAgIGJweS5jb250ZXh0LnNjZW5lLnZpZXdfc2V0dGluZ3MubG9vayA9ICdBZ1ggLSBIaWdoIENvbnRyYXN0JwpleGNlcHQgRXhjZXB0aW9uIGFzIHZlOiBwcmludChmJ0NvbG9yIG1hbmFnZW1lbnQgbm90ZToge3ZlfScpCgp0cnk6CiAgICB3b3JsZCA9IGJweS5jb250ZXh0LnNjZW5lLndvcmxkCiAgICBpZiB3b3JsZCBpcyBOb25lOgogICAgICAgIHdvcmxkID0gYnB5LmRhdGEud29ybGRzLm5ldygnV29ybGQnKQogICAgICAgIGJweS5jb250ZXh0LnNjZW5lLndvcmxkID0gd29ybGQKICAgIHdvcmxkLnVzZV9ub2RlcyA9IFRydWUKICAgIHdub2RlcyA9IHdvcmxkLm5vZGVfdHJlZS5ub2RlcwogICAgd2xpbmtzID0gd29ybGQubm9kZV90cmVlLmxpbmtzCiAgICB2b2xfbm9kZSA9IHdub2Rlcy5uZXcoJ1NoYWRlck5vZGVWb2x1bWVQcmluY2lwbGVkJykKICAgIHZvbF9ub2RlLmlucHV0c1snRGVuc2l0eSddLmRlZmF1bHRfdmFsdWUgPSAwLjAxMgogICAgd19vdXRwdXQgPSB3bm9kZXMuZ2V0KCdXb3JsZCBPdXRwdXQnKQogICAgaWYgd19vdXRwdXQ6CiAgICAgICAgd2xpbmtzLm5ldyh2b2xfbm9kZS5vdXRwdXRzWydWb2x1bWUnXSwgd19vdXRwdXQuaW5wdXRzWydWb2x1bWUnXSkKZXhjZXB0IEV4Y2VwdGlvbiBhcyB2ZTogcHJpbnQoZidWb2x1bWV0cmljIHNldHVwIG5vdGU6IHt2ZX0nKQoKIyAtLS0gU1RFUCAxOiBFWFBPUlQgSU5URVJBQ1RJVkUgM0QgR0xURi9HTEIgTU9ERUwgLS0tCnRyeToKICAgIGJweS5vcHMuZXhwb3J0X3NjZW5lLmdsdGYoZmlsZXBhdGg9J291dHB1dC9tb2RlbC5nbGInLCBleHBvcnRfZm9ybWF0PSdHTEInLCBleHBvcnRfc2tpbnM9VHJ1ZSwgZXhwb3J0X2FuaW1hdGlvbnM9VHJ1ZSkKICAgIHByaW50KCczRCBHTFRGIEV4cG9ydCBTdWNjZXNzZnVsOiBvdXRwdXQvbW9kZWwuZ2xiJykKZXhjZXB0IEV4Y2VwdGlvbiBhcyBnZTogcHJpbnQoZidHTFRGIGV4cG9ydCB3YXJuaW5nOiB7Z2V9JykKCiMgLS0tIFNURVAgMjogSEVBRExFU1MtU0FGRSBDUFUgQ1lDTEVTIFBSRVZJRVcgUkVOREVSIC0tLQp0cnk6CiAgICBpZiBicHkuY29udGV4dC5zY2VuZS5jYW1lcmE6CiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUucmVuZGVyLmVuZ2luZSA9ICdDWUNMRVMnCiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUuY3ljbGVzLmRldmljZSA9ICdDUFUnCiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUuY3ljbGVzLnNhbXBsZXMgPSAxNgogICAgICAgIGJweS5jb250ZXh0LnNjZW5lLnJlbmRlci5yZXNvbHV0aW9uX3ggPSAxMjgwCiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUucmVuZGVyLnJlc29sdXRpb25feSA9IDcyMAogICAgICAgIGJweS5jb250ZXh0LnNjZW5lLnJlbmRlci5maWxlcGF0aCA9ICdvdXRwdXQvcmVuZGVyLnBuZycKICAgICAgICBicHkub3BzLnJlbmRlci5yZW5kZXIod3JpdGVfc3RpbGw9VHJ1ZSkKICAgICAgICBwcmludCgnQ3ljbGVzIHByZXZpZXcgcmVuZGVyIGNvbXBsZXRlOiBvdXRwdXQvcmVuZGVyLnBuZycpCmV4Y2VwdCBFeGNlcHRpb24gYXMgcmU6IHByaW50KGYnUHJldmlldyByZW5kZXIgbm90ZToge3JlfScp
+  ASSET_ID: asset_1789767227769
+  W1_STRUCTURE: 
+  W2_DETAILS: 
+  W3_MATERIALS: 
+  W4_CINEMATICS: 
+Auto-Repair: Successfully redirected scene FBX import to converted GLB format.
+Python Syntax Pre-Check: PASSED
+21:37:57 | INFO: Data are loaded, start creating Blender stuff
+21:37:57 | INFO: Blender create Mesh node Mesh1
+21:37:57 | INFO: Blender create Mesh node Mesh2
+21:37:57 | INFO: Blender create Mesh node Mesh3
+21:37:57 | INFO: Blender create Mesh node Mesh4
+21:37:57 | INFO: Blender create Mesh node Mesh5
+21:37:57 | INFO: Blender create Mesh node Mesh6
+21:37:57 | INFO: Blender create Mesh node Mesh7
+21:37:57 | INFO: Blender create Mesh node Mesh8
+21:37:57 | INFO: Blender create Mesh node Mesh9
+21:37:57 | INFO: Blender create Mesh node Mesh10
+21:37:57 | INFO: Blender create Mesh node Mesh11
+21:37:57 | INFO: Blender create Mesh node Mesh12
+21:37:57 | INFO: Blender create Mesh node Mesh13
+21:37:57 | INFO: Blender create Mesh node Mesh14
+21:37:57 | INFO: Blender create Mesh node Mesh15
+21:37:57 | INFO: Blender create Mesh node Mesh16
+21:37:57 | INFO: Blender create Mesh node Mesh17
+21:37:57 | INFO: Blender create Mesh node Mesh18
+21:37:57 | INFO: Blender create Mesh node Mesh19
+21:37:57 | INFO: Blender create Mesh node Mesh20
+21:37:57 | INFO: Blender create Mesh node Mesh21
+21:37:57 | INFO: Blender create Mesh node Mesh22
+21:37:57 | INFO: Blender create Mesh node Mesh23
+21:37:57 | INFO: Blender create Mesh node Mesh24
+21:37:57 | INFO: Blender create Mesh node Mesh25
+21:37:57 | INFO: Blender create Mesh node Mesh26
+21:37:57 | INFO: Blender create Mesh node Mesh27
+21:37:57 | INFO: Blender create Mesh node Mesh28
+21:37:57 | INFO: Blender create Mesh node Mesh29
+21:37:57 | INFO: Blender create Mesh node Mesh30
+21:37:57 | INFO: Blender create Mesh node Mesh31
+21:37:57 | INFO: Blender create Mesh node Mesh32
+21:37:57 | INFO: Blender create Mesh node Mesh33
+21:37:57 | INFO: Blender create Mesh node Mesh34
+21:37:57 | INFO: Blender create Mesh node Mesh35
+21:37:57 | INFO: Blender create Mesh node Mesh36
+21:37:57 | INFO: Blender create Mesh node Mesh37
+21:37:57 | INFO: Blender create Mesh node Mesh38
+21:37:57 | INFO: Blender create Mesh node Mesh39
+21:37:57 | INFO: Blender create Mesh node Mesh40
+21:37:57 | INFO: Blender create Mesh node Mesh41
+21:37:57 | INFO: Blender create Mesh node Mesh42
+21:37:57 | INFO: Blender create Mesh node Mesh43
+21:37:57 | INFO: Blender create Mesh node Mesh44
+21:37:57 | INFO: Blender create Mesh node Mesh45
+21:37:57 | INFO: Blender create Mesh node Mesh46
+21:37:57 | INFO: Blender create Mesh node Mesh47
+21:37:57 | INFO: Blender create Mesh node Mesh48
+21:37:57 | INFO: Blender create Mesh node Mesh49
+21:37:57 | INFO: Blender create Mesh node Mesh50
+21:37:57 | INFO: Blender create Mesh node Mesh51
+21:37:57 | INFO: Blender create Mesh node Mesh52
+21:37:57 | INFO: Blender create Mesh node Mesh53
+21:37:57 | INFO: Blender create Mesh node Mesh54
+21:37:57 | INFO: Blender create Mesh node Mesh55
+21:37:57 | INFO: Blender create Mesh node Mesh56
+21:37:57 | INFO: Blender create Mesh node Mesh57
+21:37:57 | INFO: Blender create Mesh node Mesh58
+21:37:57 | INFO: Blender create Mesh node Mesh59
+21:37:57 | INFO: Blender create Mesh node Mesh60
+21:37:57 | INFO: Blender create Mesh node Mesh61
+21:37:57 | INFO: Blender create Mesh node Mesh62
+21:37:57 | INFO: Blender create Mesh node Mesh63
+21:37:57 | INFO: Blender create Mesh node Mesh64
+21:37:57 | INFO: Blender create Mesh node Mesh65
+21:37:57 | INFO: Blender create Mesh node Mesh66
+21:37:57 | INFO: Blender create Mesh node Mesh67
+21:37:57 | INFO: Blender create Mesh node Mesh68
+21:37:57 | INFO: Blender create Mesh node Mesh69
+21:37:57 | INFO: Blender create Mesh node Mesh70
+21:37:57 | INFO: Blender create Mesh node Mesh71
+21:37:57 | INFO: Blender create Mesh node Mesh72
+21:37:57 | INFO: Blender create Mesh node Mesh73
+21:37:57 | INFO: Blender create Mesh node Mesh74
+21:37:57 | INFO: Blender create Mesh node Mesh75
+21:37:57 | INFO: Blender create Mesh node Mesh76
+21:37:57 | INFO: Blender create Mesh node Mesh77
+21:37:57 | INFO: Blender create Mesh node Mesh78
+21:37:57 | INFO: Blender create Mesh node Mesh79
+21:37:57 | INFO: Blender create Mesh node Mesh80
+21:37:57 | INFO: Blender create Mesh node Mesh81
+21:37:57 | INFO: Blender create Mesh node Mesh82
+21:37:57 | INFO: Blender create Mesh node Mesh83
+21:37:57 | INFO: Blender create Mesh node Mesh84
+21:37:57 | INFO: Blender create Mesh node Mesh85
+21:37:57 | INFO: Blender create Mesh node Mesh86
+21:37:57 | INFO: Blender create Mesh node Mesh87
+21:37:57 | INFO: Blender create Mesh node Mesh88
+21:37:57 | INFO: Blender create Mesh node Mesh89
+21:37:57 | INFO: Blender create Mesh node Mesh90
+21:37:57 | INFO: Blender create Mesh node Mesh91
+21:37:57 | INFO: Blender create Mesh node Mesh92
+21:37:57 | INFO: Blender create Mesh node Mesh93
+21:37:57 | INFO: Blender create Mesh node Mesh94
+21:37:57 | INFO: Blender create Mesh node Mesh95
+21:37:57 | INFO: Blender create Mesh node Mesh96
+21:37:57 | INFO: Blender create Mesh node Mesh97
+21:37:57 | INFO: Blender create Mesh node Mesh98
+21:37:57 | INFO: Blender create Mesh node Mesh99
+21:37:57 | INFO: Blender create Mesh node Mesh100
+21:37:57 | INFO: Blender create Mesh node Mesh101
+21:37:57 | INFO: Blender create Mesh node Mesh102
+21:37:57 | INFO: Blender create Mesh node Mesh103
+21:37:57 | INFO: Blender create Mesh node Mesh104
+21:37:57 | INFO: Blender create Mesh node Mesh105
+21:37:57 | INFO: Blender create Mesh node Mesh106
+21:37:57 | INFO: Blender create Mesh node Mesh107
+21:37:57 | INFO: Blender create Mesh node Mesh108
+21:37:57 | INFO: Blender create Mesh node Mesh109
+21:37:57 | INFO: Blender create Mesh node Mesh110
+21:37:57 | INFO: Blender create Mesh node Mesh111
+21:37:57 | INFO: Blender create Mesh node Mesh112
+21:37:57 | INFO: Blender create Mesh node Mesh113
+21:37:57 | INFO: Blender create Mesh node Mesh114
+21:37:57 | INFO: Blender create Mesh node Mesh115
+21:37:57 | INFO: Blender create Mesh node Mesh116
+21:37:57 | INFO: Blender create Mesh node Mesh117
+21:37:57 | INFO: Blender create Mesh node Mesh118
+21:37:57 | INFO: Blender create Mesh node Mesh119
+21:37:57 | INFO: Blender create Mesh node Mesh120
+21:37:57 | INFO: Blender create Mesh node Mesh121
+21:37:57 | INFO: Blender create Mesh node Mesh122
+21:37:57 | INFO: Blender create Mesh node Mesh123
+21:37:57 | INFO: Blender create Mesh node Mesh124
+21:37:57 | INFO: Blender create Mesh node Mesh125
+21:37:57 | INFO: Blender create Mesh node Mesh126
+21:37:57 | INFO: Blender create Mesh node Mesh127
+21:37:57 | INFO: Blender create Mesh node Mesh128
+21:37:57 | INFO: Blender create Mesh node Mesh129
+21:37:57 | INFO: Blender create Mesh node Mesh130
+21:37:57 | INFO: Blender create Mesh node Mesh131
+21:37:57 | INFO: Blender create Mesh node Mesh132
+21:37:57 | INFO: Blender create Mesh node Mesh133
+21:37:57 | INFO: Blender create Mesh node Mesh134
+21:37:57 | INFO: Blender create Mesh node Mesh135
+21:37:57 | INFO: Blender create Mesh node Mesh136
+21:37:57 | INFO: Blender create Mesh node Mesh137
+21:37:57 | INFO: Blender create Mesh node Mesh138
+21:37:57 | INFO: Blender create Mesh node Mesh139
+21:37:57 | INFO: Blender create Mesh node Mesh140
+21:37:57 | INFO: Blender create Mesh node Mesh141
+21:37:57 | INFO: Blender create Mesh node Mesh142
+21:37:57 | INFO: Blender create Mesh node Mesh143
+21:37:57 | INFO: Blender create Mesh node Mesh144
+21:37:57 | INFO: Blender create Mesh node Mesh145
+21:37:57 | INFO: Blender create Mesh node Mesh146
+21:37:57 | INFO: Blender create Mesh node Mesh147
+21:37:57 | INFO: Blender create Mesh node Mesh148
+21:37:57 | INFO: Blender create Mesh node Mesh149
+21:37:57 | INFO: Blender create Mesh node Mesh150
+21:37:57 | INFO: Blender create Mesh node Mesh151
+21:37:57 | INFO: Blender create Mesh node Mesh152
+21:37:57 | INFO: Blender create Mesh node Mesh153
+21:37:57 | INFO: Blender create Mesh node Mesh154
+21:37:57 | INFO: Blender create Mesh node Mesh155
+21:37:57 | INFO: Blender create Mesh node Mesh156
+21:37:57 | INFO: Blender create Mesh node Mesh157
+21:37:57 | INFO: Blender create Mesh node Mesh158
+21:37:57 | INFO: Blender create Mesh node Mesh159
+21:37:57 | INFO: Blender create Mesh node Mesh160
+21:37:57 | INFO: Blender create Mesh node Mesh161
+21:37:57 | INFO: Blender create Mesh node Mesh162
+21:37:57 | INFO: Blender create Mesh node Mesh163
+21:37:57 | INFO: Blender create Mesh node Mesh164
+21:37:57 | INFO: Blender create Mesh node Mesh165
+21:37:57 | INFO: Blender create Mesh node Mesh166
+21:37:57 | INFO: Blender create Mesh node Mesh167
+21:37:57 | INFO: Blender create Mesh node Mesh168
+21:37:57 | INFO: glTF import finished in 0.19s
+21:37:58 | INFO: Starting glTF 2.0 export
+21:37:58 | INFO: Extracting primitive: Mesh9
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh10
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh11
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh12
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh13
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh14
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh15
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh16
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh153
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh154
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh155
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh156
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh157
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh158
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh159
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh160
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh161
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh162
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh163
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh164
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh165
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh166
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh167
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh168
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh8
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh1
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh2
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh3
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh4
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh5
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh6
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh7
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh88
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh89
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh90
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh91
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh92
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh93
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh94
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh95
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh96
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh97
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh98
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh99
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh100
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh101
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh102
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh103
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh104
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh105
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh106
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh107
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh108
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh109
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh110
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh111
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh112
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh113
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh114
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh115
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh116
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh117
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh118
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh119
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh120
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh121
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh122
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh123
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh124
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh125
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh126
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh127
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh128
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh129
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh130
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh131
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh132
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh133
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh134
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh135
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh136
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh137
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh138
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh139
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh140
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh141
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh142
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh143
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh144
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh145
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh146
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh147
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh148
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh149
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh150
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh151
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh152
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh17
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh18
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh19
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh20
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh21
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh22
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh23
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh24
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh25
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh26
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh27
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh28
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh29
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh30
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh31
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh32
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh33
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh34
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh35
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh36
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh37
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh38
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh39
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh40
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh41
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh42
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh43
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh44
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh45
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh46
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh47
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh48
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh49
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh50
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh51
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh52
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh53
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh54
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh55
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh56
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh57
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh58
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh59
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh60
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh61
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh62
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh63
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh64
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh65
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh66
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh67
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh68
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh69
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh70
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh71
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh72
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh73
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh74
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh75
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh76
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh77
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh78
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh79
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh80
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh81
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh82
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh83
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh84
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh85
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh86
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Mesh87
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Plane
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Plane.001
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cube
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.001
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.002
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.003
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.004
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.005
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.006
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.007
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.008
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.009
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.010
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.011
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.012
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.013
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.014
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.015
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.016
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.017
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.018
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.019
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.020
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.021
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.022
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.023
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cylinder.024
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Extracting primitive: Cube.001
+21:37:58 | INFO: Primitives created: 1
+21:37:58 | INFO: Finished glTF 2.0 export in 0.36698412895202637 s
+Blender 4.2.0 (hash a51f293548ad built 2024-07-16 06:27:02)
+Fra:1 Mem:58.99M (Peak 58.99M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Highway_Road
+Fra:1 Mem:59.00M (Peak 59.00M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Lane_Stripe
+Fra:1 Mem:59.00M (Peak 59.00M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Highway_Guardrail
+Fra:1 Mem:59.00M (Peak 59.00M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-50
+Fra:1 Mem:59.01M (Peak 59.01M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-46
+Fra:1 Mem:59.02M (Peak 59.02M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-42
+Fra:1 Mem:59.02M (Peak 59.02M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-38
+Fra:1 Mem:59.03M (Peak 59.03M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-34
+Fra:1 Mem:59.04M (Peak 59.04M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-30
+Fra:1 Mem:59.05M (Peak 59.05M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-26
+Fra:1 Mem:59.05M (Peak 59.05M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-22
+Fra:1 Mem:59.06M (Peak 59.06M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-18
+Fra:1 Mem:59.07M (Peak 59.07M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-14
+Fra:1 Mem:59.08M (Peak 59.08M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-10
+Fra:1 Mem:59.08M (Peak 59.08M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-6
+Fra:1 Mem:59.09M (Peak 59.09M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_-2
+Fra:1 Mem:59.10M (Peak 59.10M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_2
+Fra:1 Mem:59.11M (Peak 59.11M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_6
+Fra:1 Mem:59.11M (Peak 59.11M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_10
+Fra:1 Mem:59.12M (Peak 59.12M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_14
+Fra:1 Mem:59.13M (Peak 59.13M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_18
+Fra:1 Mem:59.14M (Peak 59.14M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_22
+Fra:1 Mem:59.14M (Peak 59.14M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_26
+Fra:1 Mem:59.15M (Peak 59.15M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_30
+Fra:1 Mem:59.16M (Peak 59.16M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_34
+Fra:1 Mem:59.17M (Peak 59.17M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_38
+Fra:1 Mem:59.17M (Peak 59.17M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_42
+Fra:1 Mem:59.18M (Peak 59.18M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Environment_Pole_46
+Fra:1 Mem:59.19M (Peak 59.19M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Atmospheric_Fog
+Fra:1 Mem:59.19M (Peak 59.19M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh1
+Fra:1 Mem:61.22M (Peak 61.22M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh168
+Fra:1 Mem:61.30M (Peak 61.30M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh2
+Fra:1 Mem:61.29M (Peak 61.30M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh167
+Fra:1 Mem:61.61M (Peak 61.61M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh3
+Fra:1 Mem:61.69M (Peak 61.69M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh4
+Fra:1 Mem:61.70M (Peak 61.70M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh5
+Fra:1 Mem:61.73M (Peak 61.73M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh6
+Fra:1 Mem:62.30M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh166
+Fra:1 Mem:62.37M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh165
+Fra:1 Mem:62.39M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh164
+Fra:1 Mem:62.40M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh163
+Fra:1 Mem:62.49M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh162
+Fra:1 Mem:62.55M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh161
+Fra:1 Mem:62.58M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh160
+Fra:1 Mem:62.62M (Peak 62.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh159
+Fra:1 Mem:63.30M (Peak 63.30M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh7
+Fra:1 Mem:64.10M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh158
+Fra:1 Mem:64.19M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh157
+Fra:1 Mem:64.22M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh156
+Fra:1 Mem:64.23M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh155
+Fra:1 Mem:64.31M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh154
+Fra:1 Mem:64.38M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh153
+Fra:1 Mem:64.41M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh152
+Fra:1 Mem:64.42M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh151
+Fra:1 Mem:64.43M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh150
+Fra:1 Mem:64.44M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh149
+Fra:1 Mem:64.44M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh148
+Fra:1 Mem:64.49M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh147
+Fra:1 Mem:64.50M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh146
+Fra:1 Mem:64.51M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh145
+Fra:1 Mem:64.52M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh144
+Fra:1 Mem:64.52M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh143
+Fra:1 Mem:64.52M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh142
+Fra:1 Mem:64.59M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh141
+Fra:1 Mem:64.62M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh140
+Fra:1 Mem:64.68M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh139
+Fra:1 Mem:64.69M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh138
+Fra:1 Mem:64.74M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh137
+Fra:1 Mem:64.83M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh136
+Fra:1 Mem:64.83M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh135
+Fra:1 Mem:64.87M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh134
+Fra:1 Mem:64.88M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh133
+Fra:1 Mem:64.89M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh132
+Fra:1 Mem:64.93M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh131
+Fra:1 Mem:64.93M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh130
+Fra:1 Mem:64.93M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh129
+Fra:1 Mem:64.93M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh128
+Fra:1 Mem:64.94M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh127
+Fra:1 Mem:64.94M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh126
+Fra:1 Mem:64.95M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh125
+Fra:1 Mem:64.96M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh124
+Fra:1 Mem:64.96M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh123
+Fra:1 Mem:64.97M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh122
+Fra:1 Mem:64.98M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh121
+Fra:1 Mem:64.99M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh120
+Fra:1 Mem:64.99M (Peak 65.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh119
+Fra:1 Mem:65.24M (Peak 65.24M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh118
+Fra:1 Mem:65.24M (Peak 65.24M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh117
+Fra:1 Mem:65.35M (Peak 65.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh116
+Fra:1 Mem:65.35M (Peak 65.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh115
+Fra:1 Mem:65.71M (Peak 65.71M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh114
+Fra:1 Mem:65.74M (Peak 65.74M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh113
+Fra:1 Mem:65.86M (Peak 65.86M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh112
+Fra:1 Mem:65.87M (Peak 65.87M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh111
+Fra:1 Mem:66.59M (Peak 66.59M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh110
+Fra:1 Mem:66.63M (Peak 66.63M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh109
+Fra:1 Mem:66.63M (Peak 66.63M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh108
+Fra:1 Mem:66.66M (Peak 66.66M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh107
+Fra:1 Mem:66.69M (Peak 66.69M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh106
+Fra:1 Mem:66.93M (Peak 66.93M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh105
+Fra:1 Mem:67.09M (Peak 67.09M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh104
+Fra:1 Mem:67.10M (Peak 67.10M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh103
+Fra:1 Mem:67.13M (Peak 67.13M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh102
+Fra:1 Mem:67.14M (Peak 67.14M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh101
+Fra:1 Mem:67.18M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh100
+Fra:1 Mem:66.78M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh99
+Fra:1 Mem:66.40M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh98
+Fra:1 Mem:66.27M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh8
+Fra:1 Mem:66.34M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh97
+Fra:1 Mem:66.35M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh96
+Fra:1 Mem:66.29M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh9
+Fra:1 Mem:66.49M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh10
+Fra:1 Mem:66.49M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh95
+Fra:1 Mem:66.61M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh94
+Fra:1 Mem:66.62M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh93
+Fra:1 Mem:66.64M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh92
+Fra:1 Mem:66.66M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh91
+Fra:1 Mem:66.67M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh90
+Fra:1 Mem:66.67M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh89
+Fra:1 Mem:66.68M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh88
+Fra:1 Mem:66.68M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh87
+Fra:1 Mem:66.69M (Peak 67.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh86
+Fra:1 Mem:66.78M (Peak 67.18M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh85
+Fra:1 Mem:66.95M (Peak 67.18M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh84
+Fra:1 Mem:67.12M (Peak 67.18M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh83
+Fra:1 Mem:67.17M (Peak 67.18M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh82
+Fra:1 Mem:67.21M (Peak 67.21M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh81
+Fra:1 Mem:67.46M (Peak 67.46M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh11
+Fra:1 Mem:67.37M (Peak 67.46M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh12
+Fra:1 Mem:67.40M (Peak 67.46M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh79
+Fra:1 Mem:67.40M (Peak 67.46M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh13
+Fra:1 Mem:67.45M (Peak 67.46M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh14
+Fra:1 Mem:67.55M (Peak 67.55M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh15
+Fra:1 Mem:67.54M (Peak 67.55M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh78
+Fra:1 Mem:67.53M (Peak 67.55M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh77
+Fra:1 Mem:67.81M (Peak 67.81M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh76
+Fra:1 Mem:68.17M (Peak 68.17M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh75
+Fra:1 Mem:68.31M (Peak 68.31M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh74
+Fra:1 Mem:68.32M (Peak 68.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh73
+Fra:1 Mem:68.44M (Peak 68.44M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh72
+Fra:1 Mem:69.09M (Peak 69.09M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh71
+Fra:1 Mem:69.11M (Peak 69.11M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh70
+Fra:1 Mem:69.31M (Peak 69.31M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh69
+Fra:1 Mem:69.52M (Peak 69.52M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh68
+Fra:1 Mem:69.58M (Peak 69.58M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh67
+Fra:1 Mem:69.75M (Peak 69.75M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh66
+Fra:1 Mem:69.76M (Peak 69.76M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh65
+Fra:1 Mem:69.82M (Peak 69.82M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh64
+Fra:1 Mem:69.88M (Peak 69.88M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh63
+Fra:1 Mem:69.91M (Peak 69.91M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh62
+Fra:1 Mem:69.95M (Peak 69.95M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh61
+Fra:1 Mem:70.08M (Peak 70.08M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh60
+Fra:1 Mem:70.19M (Peak 70.19M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh59
+Fra:1 Mem:70.23M (Peak 70.23M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh58
+Fra:1 Mem:70.85M (Peak 70.85M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh57
+Fra:1 Mem:70.92M (Peak 70.92M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh56
+Fra:1 Mem:70.93M (Peak 70.93M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh55
+Fra:1 Mem:70.94M (Peak 70.94M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh54
+Fra:1 Mem:70.96M (Peak 70.96M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh53
+Fra:1 Mem:70.96M (Peak 70.96M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh52
+Fra:1 Mem:70.98M (Peak 70.98M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh51
+Fra:1 Mem:70.98M (Peak 70.98M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh50
+Fra:1 Mem:70.99M (Peak 70.99M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh49
+Fra:1 Mem:71.03M (Peak 71.03M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh48
+Fra:1 Mem:71.07M (Peak 71.07M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh47
+Fra:1 Mem:71.09M (Peak 71.09M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh46
+Fra:1 Mem:71.09M (Peak 71.09M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh45
+Fra:1 Mem:71.10M (Peak 71.10M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh44
+Fra:1 Mem:71.11M (Peak 71.11M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh43
+Fra:1 Mem:71.15M (Peak 71.15M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh42
+Fra:1 Mem:71.24M (Peak 71.24M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh41
+Fra:1 Mem:71.31M (Peak 71.31M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh40
+Fra:1 Mem:71.32M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh39
+Fra:1 Mem:71.09M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh38
+Fra:1 Mem:71.27M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh37
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh16
+Fra:1 Mem:70.42M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh36
+Fra:1 Mem:70.58M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh17
+Fra:1 Mem:70.60M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh18
+Fra:1 Mem:70.65M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh19
+Fra:1 Mem:70.65M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh20
+Fra:1 Mem:70.60M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh35
+Fra:1 Mem:70.68M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh34
+Fra:1 Mem:70.69M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh33
+Fra:1 Mem:70.69M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh32
+Fra:1 Mem:70.73M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh31
+Fra:1 Mem:70.80M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh30
+Fra:1 Mem:70.86M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh29
+Fra:1 Mem:70.88M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh28
+Fra:1 Mem:70.88M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh27
+Fra:1 Mem:70.90M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh26
+Fra:1 Mem:70.93M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh25
+Fra:1 Mem:70.99M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh24
+Fra:1 Mem:71.00M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh23
+Fra:1 Mem:71.03M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh22
+Fra:1 Mem:71.10M (Peak 71.32M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Mesh21
+Fra:1 Mem:71.10M (Peak 71.32M) | Time:00:00.04 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:60.16M (Peak 71.32M) | Time:00:00.04 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:60.16M (Peak 71.32M) | Time:00:00.04 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:60.16M (Peak 71.32M) | Time:00:00.04 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:60.16M (Peak 71.32M) | Time:00:00.04 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:60.28M (Peak 71.32M) | Time:00:00.04 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:60.28M (Peak 71.32M) | Time:00:00.04 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:60.28M (Peak 71.32M) | Time:00:00.04 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:60.28M (Peak 71.32M) | Time:00:00.04 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:60.28M (Peak 71.32M) | Time:00:00.04 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:60.28M (Peak 71.32M) | Time:00:00.04 | Mem:0.04M, Peak:0.04M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:60.30M (Peak 71.32M) | Time:00:00.04 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:60.30M (Peak 71.32M) | Time:00:00.04 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:60.30M (Peak 71.32M) | Time:00:00.04 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:60.30M (Peak 71.32M) | Time:00:00.04 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:61.45M (Peak 71.32M) | Time:00:00.05 | Mem:0.08M, Peak:0.08M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:63.66M (Peak 71.32M) | Time:00:00.05 | Mem:0.13M, Peak:0.13M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.05 | Mem:2.18M, Peak:2.18M | Scene, ViewLayer | Updating Geometry BVH Plane.001 2/2 | Building BVH
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.05 | Mem:2.18M, Peak:2.18M | Scene, ViewLayer | Updating Geometry BVH Plane.001 2/2 | Building BVH 0%
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.05 | Mem:2.18M, Peak:2.18M | Scene, ViewLayer | Updating Geometry BVH Plane 1/2 | Building BVH
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.05 | Mem:2.18M, Peak:2.18M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.05 | Mem:2.18M, Peak:2.18M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.07 | Mem:7.23M, Peak:9.53M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:63.55M (Peak 71.32M) | Time:00:00.07 | Mem:7.23M, Peak:9.53M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:7.23M, Peak:9.53M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.13M, Peak:14.13M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.13M, Peak:14.13M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.13M, Peak:14.13M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.13M, Peak:14.13M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.13M, Peak:14.13M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.22M, Peak:14.22M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:70.46M (Peak 71.32M) | Time:00:00.07 | Mem:14.22M, Peak:14.22M | Scene, ViewLayer | Updating Lights | Importance map
+Fra:1 Mem:134.49M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:134.49M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:134.49M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:134.50M (Peak 422.46M) | Time:00:00.89 | Mem:78.17M, Peak:238.22M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:134.50M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:134.50M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:134.50M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Loading denoising kernels (may take a few minutes the first time)
+Fra:1 Mem:134.50M (Peak 422.46M) | Time:00:00.89 | Mem:78.25M, Peak:238.22M | Scene, ViewLayer | Sample 0/16
+Fra:1 Mem:201.31M (Peak 422.46M) | Time:00:02.43 | Remaining:00:23.03 | Mem:145.05M, Peak:238.22M | Scene, ViewLayer | Sample 1/16
+Fra:1 Mem:229.43M (Peak 422.46M) | Time:00:34.34 | Mem:145.05M, Peak:238.22M | Scene, ViewLayer | Sample 16/16
+Fra:1 Mem:229.43M (Peak 422.46M) | Time:00:34.34 | Mem:145.05M, Peak:238.22M | Scene, ViewLayer | Finished
+Saved: 'output/render.png'
+Time: 00:34.58 (Saving: 00:00.24)
+
+Info: Total files 0 | Changed 0 | Failed 0
+Importing asset from inputs/input_model.glb...
+Imported objects: 356
+Cinematic highway action sequence successfully constructed.
+INFO Draco mesh compression is available, use library at /opt/blender/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+3D GLTF Export Successful: output/model.glb
+Cycles preview render complete: output/render.png
+Info: Saved "project.blend"
+Saved project checkpoint: output/project.blend
+
+Blender quit
+SUCCESS: model.glb generated successfully.
