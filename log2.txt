@@ -1,0 +1,473 @@
+﻿2026-09-18T21:36:44.6303132Z ##[group]Run mkdir -p output
+mkdir -p output
+
+python3 - << 'EOF'
+import json, os, sys, re, base64, py_compile
+
+event_path = os.environ.get('GITHUB_EVENT_PATH')
+bpy_script = ''
+w1 = ''
+w2 = ''
+w3 = ''
+w4 = ''
+
+if event_path and os.path.exists(event_path):
+    try:
+        with open(event_path, 'r', encoding='utf-8') as ef:
+            event_data = json.load(ef)
+            payload = event_data.get('client_payload', {})
+            
+            # Support base64 model payloads if passed directly
+            input_model_b64 = payload.get('input_model_b64', '')
+            if input_model_b64 and input_model_b64.strip():
+                try:
+                    with open('input_model.glb', 'wb') as mf:
+                        mf.write(base64.b64decode(input_model_b64))
+                    os.makedirs('inputs', exist_ok=True)
+                    with open('inputs/input_model.glb', 'wb') as mf2:
+                        mf2.write(base64.b64decode(input_model_b64))
+                    print("Successfully unpacked user input 3D model: input_model.glb")
+                except Exception as me:
+                    print(f"Warning unpacking user model: {me}")
+
+            # Support uploaded custom scripts and dynamic payloads via Base64
+            if 'bpy_script_b64' in payload and payload['bpy_script_b64'].strip():
+                bpy_script = base64.b64decode(payload['bpy_script_b64']).decode('utf-8', errors='ignore')
+            elif 'bpy_script' in payload:
+                candidate = payload['bpy_script'].strip()
+                if candidate.startswith('b64:'):
+                    bpy_script = base64.b64decode(candidate[4:]).decode('utf-8', errors='ignore')
+                else:
+                    bpy_script = candidate
+                    
+            w1 = payload.get('w1StructureScript', payload.get('w1HeroScript', ''))
+            w2 = payload.get('w2DetailsScript', payload.get('w2EnvScript', ''))
+            w3 = payload.get('w3MaterialsScript', payload.get('w3LightScript', ''))
+            w4 = payload.get('w4CinematicsScript', '')
+    except Exception as e:
+        print(f"Note on GITHUB_EVENT_PATH read: {e}")
+
+# Fallback to environment variables
+if not bpy_script:
+    env_s = os.environ.get('BPY_SCRIPT', '').strip()
+    if env_s.startswith('b64:'):
+        try:
+            bpy_script = base64.b64decode(env_s[4:]).decode('utf-8', errors='ignore')
+        except Exception:
+            bpy_script = env_s
+    else:
+        bpy_script = env_s
+
+if not w1: w1 = os.environ.get('W1_STRUCTURE', '')
+if not w2: w2 = os.environ.get('W2_DETAILS', '')
+if not w3: w3 = os.environ.get('W3_MATERIALS', '')
+if not w4: w4 = os.environ.get('W4_CINEMATICS', '')
+
+# Assemble dynamic modular scripts if provided separately
+if not bpy_script.strip() and (w1.strip() or w2.strip() or w3.strip() or w4.strip()):
+    bpy_script = (
+        "import bpy, os, math, random, sys, traceback\n\n"
+        "os.makedirs('output', exist_ok=True)\n"
+        "bpy.ops.object.select_all(action='SELECT')\n"
+        "bpy.ops.object.delete(use_global=False)\n\n"
+        f"# --- W1: STRUCTURE ---\n{w1}\n\n"
+        f"# --- W2: DETAILS & PROPS ---\n{w2}\n\n"
+        f"# --- W3: PBR MATERIALS ---\n{w3}\n\n"
+        f"# --- W4: LIGHTING & CAM ---\n{w4}\n"
+    )
+
+if not bpy_script.strip():
+    err_msg = "FATAL ERROR: No Blender Python script provided in payload."
+    print(err_msg)
+    with open('output/error.txt', 'w', encoding='utf-8') as ef:
+        ef.write(err_msg + '\n')
+    sys.exit(1)
+
+# --- AST & REGEX AUTO-REPAIR PIPELINE ---
+
+# Auto-Repair 1: Neutralize unstable headless addon registrations (e.g. rigify, archimesh in 4.2)
+bpy_script = re.sub(r"addon_utils\.enable\(['\"](?:rigify|archimesh)['\"]\)", "pass", bpy_script)
+
+# Auto-Repair 2: Fix unquoted node lookups
+bpy_script = re.sub(r'nodes\.get\(\s*([A-Za-z0-9_ ]+)\s*\)', lambda m: f'nodes.get("{m.group(1).strip()}")' if '"' not in m.group(1) and "'" not in m.group(1) else m.group(0), bpy_script)
+
+# Auto-Repair 3: Fix unquoted f-strings
+bpy_script = re.sub(r'(?<=[=\s,(])f([a-zA-Z0-9_]+\{[^}"\n]+\}[a-zA-Z0-9_]*)', r'f"\1"', bpy_script)
+
+# Auto-Repair 4: Fix hallucinated operator names
+bpy_script = bpy_script.replace(".primitive_cube_create(", ".primitive_cube_add(")
+bpy_script = bpy_script.replace(".primitive_plane_create(", ".primitive_plane_add(")
+bpy_script = bpy_script.replace(".primitive_cylinder_create(", ".primitive_cylinder_add(")
+bpy_script = bpy_script.replace(".primitive_cone_create(", ".primitive_cone_add(")
+bpy_script = bpy_script.replace(".primitive_uv_sphere_create(", ".primitive_uv_sphere_add(")
+bpy_script = bpy_script.replace("bpy.ops.light.add(", "bpy.ops.object.light_add(")
+bpy_script = bpy_script.replace("bpy.ops.camera.add(", "bpy.ops.object.camera_add(")
+bpy_script = bpy_script.replace("bpy.ops.object.mesh.", "bpy.ops.mesh.")
+
+# Auto-Repair 5: Blender 4.2+ Principled BSDF socket name updates
+bpy_script = bpy_script.replace("['Transmission'].default_value", "['Transmission Weight'].default_value")
+bpy_script = bpy_script.replace("['Subsurface'].default_value", "['Subsurface Weight'].default_value")
+bpy_script = bpy_script.replace("['Specular'].default_value", "['Specular IOR Level'].default_value")
+bpy_script = bpy_script.replace("['BaseColor']", "['Base Color']")
+bpy_script = bpy_script.replace('["BaseColor"]', '["Base Color"]')
+bpy_script = bpy_script.replace("'BLENDER_EEVEE'", "'BLENDER_EEVEE_NEXT'")
+bpy_script = bpy_script.replace('"BLENDER_EEVEE"', '"BLENDER_EEVEE_NEXT"')
+
+# Auto-Repair 6: Blender 4.2+ AgX Color Management Look Enums (Fixes "High Contrast" enum error)
+look_fixes = [
+    (r"view_settings\.look\s*=\s*['\"]High Contrast['\"]", "view_settings.look = 'AgX - High Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Very High Contrast['\"]", "view_settings.look = 'AgX - Very High Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Medium High Contrast['\"]", "view_settings.look = 'AgX - Medium High Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Medium Low Contrast['\"]", "view_settings.look = 'AgX - Medium Low Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Low Contrast['\"]", "view_settings.look = 'AgX - Low Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Very Low Contrast['\"]", "view_settings.look = 'AgX - Very Low Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Base Contrast['\"]", "view_settings.look = 'AgX - Base Contrast'"),
+    (r"view_settings\.look\s*=\s*['\"]Punchy['\"]", "view_settings.look = 'AgX - Punchy'")
+]
+for pattern, replacement in look_fixes:
+    bpy_script = re.sub(pattern, replacement, bpy_script)
+
+# Auto-Repair 7: Wrap view_settings.look in try-except block to ensure immunity from look enum failures
+bpy_script = re.sub(
+    r"^([ \t]*)(.*view_settings\.look\s*=.*)$",
+    r"\1try:\n\1    \2\n\1except Exception as _look_err: print(f'View settings look notice: {_look_err}')",
+    bpy_script,
+    flags=re.MULTILINE
+)
+
+# Auto-Repair 8: Redirect FBX imports to GLTF if converted or if model exists as GLB (Safe Quote Preservation)
+has_glb = os.path.exists('input_model.glb') or os.path.exists('inputs/input_model.glb')
+if has_glb:
+    bpy_script = bpy_script.replace("bpy.ops.import_scene.fbx(", "bpy.ops.import_scene.gltf(")
+    bpy_script = re.sub(r"(['\"])([^'\"\n]*?)\.fbx(['\"])", r"\1\2.glb\3", bpy_script)
+    print("Auto-Repair: Successfully redirected scene FBX import to converted GLB format.")
+
+# Auto-Repair 9: SCOPED Texture Type Fix (Never corrupt light or curve types!)
+valid_tex = {'NONE', 'BLEND', 'CLOUDS', 'DISTORTED_NOISE', 'IMAGE', 'MAGIC', 'MARBLE', 'MUSGRAVE', 'NOISE', 'STUCCI', 'VORONOI', 'WOOD'}
+def fix_texture_type(m):
+    prefix = m.group(1)
+    tex_val = m.group(2)
+    suffix = m.group(3)
+    if tex_val not in valid_tex:
+        tex_val = 'CLOUDS'
+    return prefix + tex_val + suffix
+bpy_script = re.sub(r"(textures\.new\([^)]*type\s*=\s*['\"])([A-Za-z0-9_]+)(['\"])", fix_texture_type, bpy_script)
+
+# Auto-Repair 10: Ensure standard GLTF/GLB export exists with baked modifiers
+if 'export_scene.gltf' not in bpy_script:
+    bpy_script += (
+        "\n\n# Standard Model Exporter with Baked Modifiers\n"
+        "import bpy, os\n"
+        "os.makedirs('output', exist_ok=True)\n"
+        "try:\n"
+        "    bpy.ops.export_scene.gltf(filepath='output/model.glb', export_format='GLB', export_apply=True, export_skins=True, export_animations=True)\n"
+        "    print('3D GLTF Export Successful: output/model.glb')\n"
+        "except Exception as ge: print(f'GLTF export warning: {ge}')\n"
+    )
+
+# Auto-Repair 11: Production Denoised Cycles Snapshot (16 samples for rapid cloud execution)
+if 'output/render.png' not in bpy_script:
+    bpy_script += (
+        "\n\n# High-Fidelity Denoised Viewport Snapshot\n"
+        "try:\n"
+        "    import os, math, bpy\n"
+        "    if not os.path.exists('output/render.png'):\n"
+        "        if not bpy.context.scene.camera:\n"
+        "            bpy.ops.object.camera_add(location=(5, -5, 4), rotation=(math.radians(60), 0, math.radians(45)))\n"
+        "            bpy.context.scene.camera = bpy.context.active_object\n"
+        "        bpy.context.scene.render.engine = 'CYCLES'\n"
+        "        bpy.context.scene.cycles.device = 'CPU'\n"
+        "        bpy.context.scene.cycles.samples = 16\n"
+        "        bpy.context.scene.cycles.use_denoising = True\n"
+        "        bpy.context.scene.render.resolution_x = 1280\n"
+        "        bpy.context.scene.render.resolution_y = 720\n"
+        "        bpy.context.scene.render.filepath = 'output/render.png'\n"
+        "        bpy.ops.render.render(write_still=True)\n"
+        "        print('Production Cycles snapshot complete: output/render.png')\n"
+        "except Exception as snap_e: print(f'Snapshot generation note: {snap_e}')\n"
+    )
+
+# Auto-Repair 12: Project State Checkpoint for Option B2 Interactive Sessions
+if 'bpy.ops.wm.save_as_mainfile' not in bpy_script:
+    bpy_script += (
+        "\n\n# Save Checkpoint Project for Interactive Iteration\n"
+        "try:\n"
+        "    import bpy\n"
+        "    bpy.ops.wm.save_as_mainfile(filepath='output/project.blend')\n"
+        "    print('Saved project checkpoint: output/project.blend')\n"
+        "except Exception as pe: print(f'Blend save note: {pe}')\n"
+    )
+
+# Auto-Repair 13: Fix Background shader socket name ('Color' -> 'Background')
+bpy_script = re.sub(r"(\.outputs\[['\"])Color(['\"]\]\s*,\s*[^,\n]*?inputs\[['\"])Surface(['\"]\])", r"\1Background\2Surface\3", bpy_script)
+bpy_script = re.sub(r"(bg(?:_node)?\.outputs\[['\"])Color(['\"]\])", r"\1Background\2", bpy_script)
+
+# Auto-Repair 14: Neutralize read-only sequencer_colorspace_settings assignment
+bpy_script = re.sub(r"^[ \t]*.*?\.sequencer_colorspace_settings\s*=.*$", "pass", bpy_script, flags=re.MULTILINE)
+
+# Auto-Repair 15: Fix scene.exposure -> scene.view_settings.exposure
+bpy_script = re.sub(r"(\bscene)\.exposure\b", r"\1.view_settings.exposure", bpy_script)
+
+# Auto-Repair 16: Additional Principled BSDF socket link protections
+bpy_script = re.sub(r"inputs\[['\"]Transmission['\"]\]", "inputs['Transmission Weight']", bpy_script)
+bpy_script = re.sub(r"inputs\[['\"]Subsurface['\"]\]", "inputs['Subsurface Weight']", bpy_script)
+bpy_script = re.sub(r"inputs\[['\"]Specular['\"]\]", "inputs['Specular IOR Level']", bpy_script)
+
+with open('run_task.py', 'w', encoding='utf-8') as f:
+    f.write(bpy_script)
+
+try:
+    py_compile.compile('run_task.py', doraise=True)
+    print("Python Syntax Pre-Check: PASSED")
+except py_compile.PyCompileError as pe:
+    print(f"Syntax Validation Warning: {pe}")
+
+EOF
+
+# Run headless Blender wrapped inside virtual X display buffer for full OpenGL shader compilation
+xvfb-run -a --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render" /opt/blender/blender -b -P run_task.py 2>&1 | tee output/blender_execution.log || true
+
+# Extract clean Python traceback for Solution B if any exception occurred
+python3 - << 'EOF'
+import re, os
+if os.path.exists('output/blender_execution.log'):
+    with open('output/blender_execution.log', 'r', encoding='utf-8', errors='ignore') as lf:
+        content = lf.read()
+    
+    tb_match = re.search(r'(Traceback \(most recent call last\):[\s\S]+?(?:[A-Za-z0-9_]+Error|[A-Za-z0-9_]+Exception):[^\n]+)', content)
+    if tb_match:
+        traceback_str = tb_match.group(1).strip()
+        with open('output/error.txt', 'w', encoding='utf-8') as ef:
+            ef.write(traceback_str + '\n')
+        print("EXTRACTED TRACEBACK TO error.txt:\n" + traceback_str)
+EOF
+
+# Normalize any exported .glb to model.glb so the Android app can consume it
+if [ ! -f output/model.glb ]; then
+  FIRST_GLB=$(ls output/*.glb 2>/dev/null | head -n 1)
+  if [ -n "$FIRST_GLB" ]; then
+    cp "$FIRST_GLB" output/model.glb
+    echo "Normalized $FIRST_GLB -> output/model.glb"
+  fi
+fi
+
+# Normalize any rendered .mp4 to cinematic.mp4
+if [ ! -f output/cinematic.mp4 ]; then
+  FIRST_MP4=$(ls output/*.mp4 2>/dev/null | head -n 1)
+  if [ -n "$FIRST_MP4" ]; then
+    cp "$FIRST_MP4" output/cinematic.mp4
+    echo "Normalized $FIRST_MP4 -> output/cinematic.mp4"
+  fi
+fi
+
+# Verify output assets
+if [ -f output/model.glb ]; then
+  echo "SUCCESS: model.glb generated successfully."
+  if [ -f output/cinematic.mp4 ]; then
+    echo "SUCCESS: cinematic.mp4 video generated successfully ($(stat -c%s output/cinematic.mp4) bytes)."
+  fi
+  exit 0
+else
+  if [ ! -f output/error.txt ]; then
+    echo "ERROR: Blender execution halted without generating model.glb" > output/error.txt
+    tail -n 40 output/blender_execution.log >> output/error.txt
+  fi
+  exit 1
+fi
+shell: /usr/bin/bash -e {0}
+env:
+  BPY_SCRIPT: b64:aW1wb3J0IGJweQppbXBvcnQgb3MKaW1wb3J0IG1hdGgKaW1wb3J0IHJhbmRvbQppbXBvcnQgc3lzCmltcG9ydCBhZGRvbl91dGlscwoKdHJ5OgogICAgYWRkb25fdXRpbHMuZW5hYmxlKCdhcmNoaW1lc2gnKQogICAgYWRkb25fdXRpbHMuZW5hYmxlKCdyaWdpZnknKQpleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICBwcmludChmJ0FkZG9uIGFjdGl2YXRpb24gbm90ZToge2V9JykKCm9zLm1ha2VkaXJzKCdvdXRwdXQnLCBleGlzdF9vaz1UcnVlKQoKIyBSZXNldCBzY2VuZSBjb21wbGV0ZWx5CmJweS5vcHMub2JqZWN0LnNlbGVjdF9hbGwoYWN0aW9uPSdTRUxFQ1QnKQpicHkub3BzLm9iamVjdC5kZWxldGUodXNlX2dsb2JhbD1GYWxzZSkKCiMgLS0tIERZTkFNSUMgQUkgTUVTSCAmIFNDRU5FIEdFTkVSQVRJT04gLS0tCmltcG9ydCBvcwppbXBvcnQgbWF0aAppbXBvcnQgcmFuZG9tCmltcG9ydCBicHkKCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQojIDEuIENMRUFOIFNDRU5FICYgU0VUVVAKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCmRlZiBjbGVhbl9zY2VuZSgpOgogICAgYnB5Lm9wcy5vYmplY3Quc2VsZWN0X2FsbChhY3Rpb249J1NFTEVDVCcpCiAgICBicHkub3BzLm9iamVjdC5kZWxldGUoKQogICAgZm9yIGJsb2NrIGluIChicHkuZGF0YS5tZXNoZXMsIGJweS5kYXRhLm1hdGVyaWFscywgYnB5LmRhdGEudGV4dHVyZXMsIGJweS5kYXRhLmltYWdlcywgYnB5LmRhdGEuY2FtZXJhcywgYnB5LmRhdGEubGlnaHRzKToKICAgICAgICBmb3IgaXRlbSBpbiBibG9jazoKICAgICAgICAgICAgYmxvY2sucmVtb3ZlKGl0ZW0pCgpjbGVhbl9zY2VuZSgpCgojIFNldCBTY2VuZSBFbmdpbmUgJiBDb2xvciBNYW5hZ2VtZW50CnNjZW5lID0gYnB5LmNvbnRleHQuc2NlbmUKc2NlbmUucmVuZGVyLmVuZ2luZSA9ICdDWUNMRVMnCnNjZW5lLmN5Y2xlcy5zYW1wbGVzID0gMTI4CnNjZW5lLmN5Y2xlcy51c2VfZGVub2lzaW5nID0gVHJ1ZQoKIyBDb2xvciBNYW5hZ2VtZW50IChBZ1ggSGlnaCBDb250cmFzdCBzZXR1cCkKc2NlbmUudmlld19zZXR0aW5ncy52aWV3X3RyYW5zZm9ybSA9ICdBZ1gnCnNjZW5lLnZpZXdfc2V0dGluZ3MubG9vayA9ICdBZ1ggLSBIaWdoIENvbnRyYXN0JwpzY2VuZS52aWV3X3NldHRpbmdzLmV4cG9zdXJlID0gMC4yCgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyAyLiBJTVBPUlQgSEVSTyBNT0RFTCAoQXVkaSBSOCAvIEFzc2V0KQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KcHJpbnQoIkltcG9ydGluZyBhc3NldCBmcm9tIGlucHV0cy9pbnB1dF9tb2RlbC5nbGIuLi4iKQppZiBvcy5wYXRoLmV4aXN0cygnaW5wdXRzL2lucHV0X21vZGVsLmdsYicpOgogICAgYnB5Lm9wcy5pbXBvcnRfc2NlbmUuZ2x0ZihmaWxlcGF0aD0naW5wdXRzL2lucHV0X21vZGVsLmdsYicpCmVsaWYgb3MucGF0aC5leGlzdHMoJ2lucHV0X21vZGVsLmdsYicpOgogICAgYnB5Lm9wcy5pbXBvcnRfc2NlbmUuZ2x0ZihmaWxlcGF0aD0naW5wdXRfbW9kZWwuZ2xiJykKZWxpZiBvcy5wYXRoLmV4aXN0cygnaW5wdXRzL2lucHV0X21vZGVsLmZieCcpOgogICAgdHJ5OgogICAgICAgIGJweS5vcHMuaW1wb3J0X3NjZW5lLmZieChmaWxlcGF0aD0naW5wdXRzL2lucHV0X21vZGVsLmZieCcpCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGZlOgogICAgICAgIHByaW50KGYiRkJYIGltcG9ydCBub3RlOiB7ZmV9IikKCmltcG9ydGVkX29ianMgPSBbb2JqIGZvciBvYmogaW4gYnB5LmNvbnRleHQuc2VsZWN0ZWRfb2JqZWN0c10KcHJpbnQoZiJJbXBvcnRlZCBvYmplY3RzOiB7bGVuKGltcG9ydGVkX29ianMpfSIpCgojIENyZWF0ZSBhIG1hc3RlciBncm91cCBlbXB0eSBmb3IgdGhlIGNhcgpjYXJfcm9vdCA9IGJweS5kYXRhLm9iamVjdHMubmV3KCJDYXJfUm9vdCIsIE5vbmUpCnNjZW5lLmNvbGxlY3Rpb24ub2JqZWN0cy5saW5rKGNhcl9yb290KQoKZm9yIG9iaiBpbiBpbXBvcnRlZF9vYmpzOgogICAgaWYgb2JqLnBhcmVudCBpcyBOb25lOgogICAgICAgIG9iai5wYXJlbnQgPSBjYXJfcm9vdAoKIyBBbGlnbi9TY2FsZSBoZXJvIG1vZGVsIChhc3N1bWUgc3RhbmRhcmQgb3JpZW50YXRpb24sIGNlbnRlciBvcmlnaW4pCmNhcl9yb290LmxvY2F0aW9uID0gKDAuMCwgMC4wLCAwLjApCgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyAzLiBNQVRFUklBTFMgU0VUVVAKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCmRlZiBjcmVhdGVfYXNwaGFsdF9tYXRlcmlhbCgpOgogICAgbWF0ID0gYnB5LmRhdGEubWF0ZXJpYWxzLm5ldyhuYW1lPSJIaWdod2F5X0FzcGhhbHQiKQogICAgbWF0LnVzZV9ub2RlcyA9IFRydWUKICAgIG5vZGVzID0gbWF0Lm5vZGVfdHJlZS5ub2RlcwogICAgbGlua3MgPSBtYXQubm9kZV90cmVlLmxpbmtzCiAgICBub2Rlcy5jbGVhcigpCiAgICAKICAgICMgUHJpbmNpcGxlZCBCU0RGCiAgICBic2RmID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCc2RmUHJpbmNpcGxlZCcpCiAgICBic2RmLmxvY2F0aW9uID0gKDAsIDApCiAgICBic2RmLmlucHV0c1snQmFzZSBDb2xvciddLmRlZmF1bHRfdmFsdWUgPSAoMC4wNCwgMC4wNCwgMC4wNCwgMS4wKQogICAgYnNkZi5pbnB1dHNbJ1JvdWdobmVzcyddLmRlZmF1bHRfdmFsdWUgPSAwLjYKICAgIGJzZGYuaW5wdXRzWydNZXRhbGxpYyddLmRlZmF1bHRfdmFsdWUgPSAwLjA1CiAgICAKICAgICMgTm9pc2UgZm9yIHJvdWdobmVzcyB2YXJpYXRpb24KICAgIG5vaXNlID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVUZXhOb2lzZScpCiAgICBub2lzZS5sb2NhdGlvbiA9ICgtMzAwLCAwKQogICAgbm9pc2UuaW5wdXRzWydTY2FsZSddLmRlZmF1bHRfdmFsdWUgPSAyNTAuMAogICAgCiAgICBidW1wID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCdW1wJykKICAgIGJ1bXAubG9jYXRpb24gPSAoLTE1MCwgLTIwMCkKICAgIGJ1bXAuaW5wdXRzWydTdHJlbmd0aCddLmRlZmF1bHRfdmFsdWUgPSAwLjA1CiAgICAKICAgIGxpbmtzLm5ldyhub2lzZS5vdXRwdXRzWydGYWMnXSwgYnVtcC5pbnB1dHNbJ0hlaWdodCddKQogICAgbGlua3MubmV3KGJ1bXAub3V0cHV0c1snTm9ybWFsJ10sIGJzZGYuaW5wdXRzWydOb3JtYWwnXSkKICAgIAogICAgb3V0cHV0ID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVPdXRwdXRNYXRlcmlhbCcpCiAgICBvdXRwdXQubG9jYXRpb24gPSAoMzAwLCAwKQogICAgbGlua3MubmV3KGJzZGYub3V0cHV0c1snQlNERiddLCBvdXRwdXQuaW5wdXRzWydTdXJmYWNlJ10pCiAgICByZXR1cm4gbWF0CgpkZWYgY3JlYXRlX2d1YXJkcmFpbF9tYXRlcmlhbCgpOgogICAgbWF0ID0gYnB5LmRhdGEubWF0ZXJpYWxzLm5ldyhuYW1lPSJHdWFyZHJhaWxfTWV0YWwiKQogICAgbWF0LnVzZV9ub2RlcyA9IFRydWUKICAgIG5vZGVzID0gbWF0Lm5vZGVfdHJlZS5ub2RlcwogICAgbGlua3MgPSBtYXQubm9kZV90cmVlLmxpbmtzCiAgICBub2Rlcy5jbGVhcigpCiAgICAKICAgIGJzZGYgPSBub2Rlcy5uZXcodHlwZT0nU2hhZGVyTm9kZUJzZGZQcmluY2lwbGVkJykKICAgIGJzZGYubG9jYXRpb24gPSAoMCwgMCkKICAgIGJzZGYuaW5wdXRzWydCYXNlIENvbG9yJ10uZGVmYXVsdF92YWx1ZSA9ICgwLjcsIDAuNywgMC43NSwgMS4wKQogICAgYnNkZi5pbnB1dHNbJ01ldGFsbGljJ10uZGVmYXVsdF92YWx1ZSA9IDAuOTUKICAgIGJzZGYuaW5wdXRzWydSb3VnaG5lc3MnXS5kZWZhdWx0X3ZhbHVlID0gMC4xNQogICAgCiAgICBvdXRwdXQgPSBub2Rlcy5uZXcodHlwZT0nU2hhZGVyTm9kZU91dHB1dE1hdGVyaWFsJykKICAgIG91dHB1dC5sb2NhdGlvbiA9ICgzMDAsIDApCiAgICBsaW5rcy5uZXcoYnNkZi5vdXRwdXRzWydCU0RGJ10sIG91dHB1dC5pbnB1dHNbJ1N1cmZhY2UnXSkKICAgIHJldHVybiBtYXQKCmRlZiBjcmVhdGVfc3RyaXBlX21hdGVyaWFsKCk6CiAgICBtYXQgPSBicHkuZGF0YS5tYXRlcmlhbHMubmV3KG5hbWU9IkxhbmVfU3RyaXBlIikKICAgIG1hdC51c2Vfbm9kZXMgPSBUcnVlCiAgICBub2RlcyA9IG1hdC5ub2RlX3RyZWUubm9kZXMKICAgIGxpbmtzID0gbWF0Lm5vZGVfdHJlZS5saW5rcwogICAgbm9kZXMuY2xlYXIoKQogICAgCiAgICBic2RmID0gbm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCc2RmUHJpbmNpcGxlZCcpCiAgICBic2RmLmxvY2F0aW9uID0gKDAsIDApCiAgICBic2RmLmlucHV0c1snQmFzZSBDb2xvciddLmRlZmF1bHRfdmFsdWUgPSAoMC45LCAwLjg1LCAwLjcsIDEuMCkKICAgIGJzZGYuaW5wdXRzWydSb3VnaG5lc3MnXS5kZWZhdWx0X3ZhbHVlID0gMC40CiAgICAKICAgIG91dHB1dCA9IG5vZGVzLm5ldyh0eXBlPSdTaGFkZXJOb2RlT3V0cHV0TWF0ZXJpYWwnKQogICAgb3V0cHV0LmxvY2F0aW9uID0gKDMwMCwgMCkKICAgIGxpbmtzLm5ldyhic2RmLm91dHB1dHNbJ0JTREYnXSwgb3V0cHV0LmlucHV0c1snU3VyZmFjZSddKQogICAgcmV0dXJuIG1hdAoKYXNwaGFsdF9tYXQgPSBjcmVhdGVfYXNwaGFsdF9tYXRlcmlhbCgpCmd1YXJkcmFpbF9tYXQgPSBjcmVhdGVfZ3VhcmRyYWlsX21hdGVyaWFsKCkKc3RyaXBlX21hdCA9IGNyZWF0ZV9zdHJpcGVfbWF0ZXJpYWwoKQoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgNC4gRU5WSVJPTk1FTlQgJiBISUdIV0FZIEdFT01FVFJZCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQojIENvYXN0YWwgSGlnaHdheSBBc3BoYWx0IFN0cmlwCmJweS5vcHMubWVzaC5wcmltaXRpdmVfcGxhbmVfYWRkKHNpemU9MTAwLjAsIGxvY2F0aW9uPSgwLCAwLCAwKSkKaGlnaHdheSA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKaGlnaHdheS5uYW1lID0gIkhpZ2h3YXlfUm9hZCIKaGlnaHdheS5zY2FsZSA9ICgwLjMsIDE1LjAsIDEuMCkgIyBOYXJyb3cgbG9uZyByb2FkCmhpZ2h3YXkuZGF0YS5tYXRlcmlhbHMuYXBwZW5kKGFzcGhhbHRfbWF0KQoKIyBMYW5lIFN0cmlwZQpicHkub3BzLm1lc2gucHJpbWl0aXZlX3BsYW5lX2FkZChzaXplPTEuMCwgbG9jYXRpb249KDAsIDAsIDAuMDAxKSkKc3RyaXBlID0gYnB5LmNvbnRleHQuYWN0aXZlX29iamVjdApzdHJpcGUubmFtZSA9ICJMYW5lX1N0cmlwZSIKc3RyaXBlLnNjYWxlID0gKDAuMDUsIDUwLjAsIDEuMCkKc3RyaXBlLmRhdGEubWF0ZXJpYWxzLmFwcGVuZChzdHJpcGVfbWF0KQoKIyBNZXRhbGxpYyBHdWFyZHJhaWwgKFJpZ2h0IHNpZGUpCmJweS5vcHMubWVzaC5wcmltaXRpdmVfY3ViZV9hZGQoc2l6ZT0xLjAsIGxvY2F0aW9uPSgyLjIsIDAsIDAuNSkpCmd1YXJkcmFpbCA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKZ3VhcmRyYWlsLm5hbWUgPSAiSGlnaHdheV9HdWFyZHJhaWwiCmd1YXJkcmFpbC5zY2FsZSA9ICgwLjEsIDE1MC4wLCAwLjYpCmd1YXJkcmFpbC5kYXRhLm1hdGVyaWFscy5hcHBlbmQoZ3VhcmRyYWlsX21hdCkKCiMgRW52aXJvbm1lbnQgcHJvcHMgKFNwZWVkIHN0cmVha3MgLyBtb3Rpb24gcGlsbGFycyBhbG9uZyB0aGUgc2lkZXMpCnJhbmRvbS5zZWVkKDMwMykKZm9yIGkgaW4gcmFuZ2UoLTUwLCA1MCwgNCk6CiAgICBicHkub3BzLm1lc2gucHJpbWl0aXZlX2N5bGluZGVyX2FkZChyYWRpdXM9MC4xLCBkZXB0aD0zLjAsIGxvY2F0aW9uPSgtNC4wLCBmbG9hdChpKSwgMS41KSkKICAgIHBvbGUgPSBicHkuY29udGV4dC5hY3RpdmVfb2JqZWN0CiAgICBwb2xlLm5hbWUgPSBmIkVudmlyb25tZW50X1BvbGVfe2l9IgogICAgbWF0X3BvbGUgPSBicHkuZGF0YS5tYXRlcmlhbHMubmV3KG5hbWU9ZiJQb2xlTWF0X3tpfSIpCiAgICBtYXRfcG9sZS51c2Vfbm9kZXMgPSBUcnVlCiAgICBtYXRfcG9sZS5ub2RlX3RyZWUubm9kZXNbJ1ByaW5jaXBsZWQgQlNERiddLmlucHV0c1snQmFzZSBDb2xvciddLmRlZmF1bHRfdmFsdWUgPSAoMC4xLCAwLjEsIDAuMSwgMS4wKQogICAgcG9sZS5kYXRhLm1hdGVyaWFscy5hcHBlbmQobWF0X3BvbGUpCgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyA1LiBMSUdIVElORyAoR29sZGVuIEhvdXIgU3VuICsgU2t5IEF0bW9zcGhlcmUpCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQojIFN1biBMaWdodCAoTG93LWVsZXZhdGlvbiByaW0gbGlnaHQgYW5nbGUpCmJweS5vcHMub2JqZWN0LmxpZ2h0X2FkZCh0eXBlPSdTVU4nLCBsb2NhdGlvbj0oLTIwLjAsIC0xMC4wLCA1LjApKQpzdW4gPSBicHkuY29udGV4dC5hY3RpdmVfb2JqZWN0CnN1bi5uYW1lID0gIkdvbGRlbl9Ib3VyX1N1biIKc3VuLmRhdGEuZW5lcmd5ID0gNS41CnN1bi5kYXRhLmNvbG9yID0gKDEuMCwgMC43LCAwLjQpICMgV2FybSBnb2xkZW4gc3Vuc2V0IGh1ZQpzdW4ucm90YXRpb25fZXVsZXIgPSAobWF0aC5yYWRpYW5zKDY1LjApLCBtYXRoLnJhZGlhbnMoMTUuMCksIG1hdGgucmFkaWFucygtNDUuMCkpCgojIFdvcmxkIEJhY2tncm91bmQgU2V0dXAgKFNreSBncmFkaWVudCkKd29ybGQgPSBicHkuY29udGV4dC5zY2VuZS53b3JsZAppZiB3b3JsZCBpcyBOb25lOgogICAgd29ybGQgPSBicHkuZGF0YS53b3JsZHMubmV3KCJIaWdod2F5X1dvcmxkIikKICAgIGJweS5jb250ZXh0LnNjZW5lLndvcmxkID0gd29ybGQKd29ybGQudXNlX25vZGVzID0gVHJ1ZQoKd25vZGVzID0gd29ybGQubm9kZV90cmVlLm5vZGVzCndsaW5rcyA9IHdvcmxkLm5vZGVfdHJlZS5saW5rcwp3bm9kZXMuY2xlYXIoKQoKYmcgPSB3bm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVCYWNrZ3JvdW5kJykKYmcuaW5wdXRzWydTdHJlbmd0aCddLmRlZmF1bHRfdmFsdWUgPSAxLjIKc2t5X3RleCA9IHdub2Rlcy5uZXcodHlwZT0nU2hhZGVyTm9kZVRleFNreScpCnNreV90ZXguc2t5X3R5cGUgPSAnSE9TRUtfV0lMS0lFJwpza3lfdGV4LnN1bl9kaXJlY3Rpb24gPSBzdW4ubG9jYXRpb24ubm9ybWFsaXplZCgpCgpvdXRfd29ybGQgPSB3bm9kZXMubmV3KHR5cGU9J1NoYWRlck5vZGVPdXRwdXRXb3JsZCcpCndsaW5rcy5uZXcoc2t5X3RleC5vdXRwdXRzWydDb2xvciddLCBiZy5pbnB1dHNbJ0NvbG9yJ10pCndsaW5rcy5uZXcoYmcub3V0cHV0c1snQmFja2dyb3VuZCddLCBvdXRfd29ybGQuaW5wdXRzWydTdXJmYWNlJ10pCgojIFZvbHVtZXRyaWMgRm9nIChBdG1vc3BoZXJpYyBoYXplKQppZiBUcnVlOgogICAgYnB5Lm9wcy5tZXNoLnByaW1pdGl2ZV9jdWJlX2FkZChzaXplPTEwMC4wLCBsb2NhdGlvbj0oMCwgMCwgNSkpCiAgICBmb2dfdm9sdW1lID0gYnB5LmNvbnRleHQuYWN0aXZlX29iamVjdAogICAgZm9nX3ZvbHVtZS5uYW1lID0gIkF0bW9zcGhlcmljX0ZvZyIKICAgIGZvZ19tYXQgPSBicHkuZGF0YS5tYXRlcmlhbHMubmV3KG5hbWU9IlZvbHVtZXRyaWNfRm9nX01hdCIpCiAgICBmb2dfbWF0LnVzZV9ub2RlcyA9IFRydWUKICAgIGZfbm9kZXMgPSBmb2dfbWF0Lm5vZGVfdHJlZS5ub2RlcwogICAgZl9saW5rcyA9IGZvZ19tYXQubm9kZV90cmVlLmxpbmtzCiAgICBmX25vZGVzLmNsZWFyKCkKICAgIAogICAgdm9sX2JzZGYgPSBmX25vZGVzLm5ldyh0eXBlPSdTaGFkZXJOb2RlVm9sdW1lUHJpbmNpcGxlZCcpCiAgICB2b2xfYnNkZi5pbnB1dHNbJ0RlbnNpdHknXS5kZWZhdWx0X3ZhbHVlID0gMC4wMTIKICAgIHZvbF9ic2RmLmlucHV0c1snQ29sb3InXS5kZWZhdWx0X3ZhbHVlID0gKDEuMCwgMC44LCAwLjYsIDEuMCkKICAgIHZvbF9vdXQgPSBmX25vZGVzLm5ldyh0eXBlPSdTaGFkZXJOb2RlT3V0cHV0TWF0ZXJpYWwnKQogICAgZl9saW5rcy5uZXcodm9sX2JzZGYub3V0cHV0c1snVm9sdW1lJ10sIHZvbF9vdXQuaW5wdXRzWydTdXJmYWNlJ10pCiAgICBmb2dfdm9sdW1lLmRhdGEubWF0ZXJpYWxzLmFwcGVuZChmb2dfbWF0KQoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgNi4gQ0FNRVJBICYgQ09NUE9TSVRJT04gKExvdy1hbmdsZSB0cmFja2luZyByaWcsIGYvMi44KQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KYnB5Lm9wcy5vYmplY3QuY2FtZXJhX2FkZChsb2NhdGlvbj0oLTAuOSwgLTEuMiwgMC4yNSkpCmNhbSA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKY2FtLm5hbWUgPSAiQ2luZW1hdGljX1RyYWNraW5nX0NhbWVyYSIKY2FtLmRhdGEubGVucyA9IDIwLjAgIyAyMG1tIHVsdHJhLXdpZGUgdHJhY2tpbmcgbGVucwpjYW0ucm90YXRpb25fZXVsZXIgPSAobWF0aC5yYWRpYW5zKDgyLjApLCBtYXRoLnJhZGlhbnMoMC4wKSwgbWF0aC5yYWRpYW5zKDI1LjApKQoKc2NlbmUuY2FtZXJhID0gY2FtCgojIERlcHRoIG9mIEZpZWxkIGNvbmZpZ3VyYXRpb24gZm9jdXNlZCBvbiByZWFyIHdoZWVsIGFyY2ggcmltCiMgRW1wdHkgdGFyZ2V0IGZvciBwcmVjaXNlIGZvY3VzIHRyYWNraW5nCmJweS5vcHMub2JqZWN0LmVtcHR5X2FkZCh0eXBlPSdQTEFJTl9BWEVTJywgbG9jYXRpb249KC0wLjcsIC0xLjAsIDAuMykpCmZvY3VzX3RhcmdldCA9IGJweS5jb250ZXh0LmFjdGl2ZV9vYmplY3QKZm9jdXNfdGFyZ2V0Lm5hbWUgPSAiQ2FtZXJhX0ZvY3VzX1RhcmdldCIKCmNhbS5kYXRhLmRvZi51c2VfZG9mID0gVHJ1ZQpjYW0uZGF0YS5kb2YuZm9jdXNfb2JqZWN0ID0gZm9jdXNfdGFyZ2V0CmNhbS5kYXRhLmRvZi5hcGVydHVyZV9mc3RvcCA9IDIuOAoKIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiMgNy4gSElHSC1TUEVFRCBBTklNQVRJT04gJiBNT1RJT04gQkxVUgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyBFbmFibGUgMTgwLWRlZ3JlZSBvcHRpY2FsIHNodXR0ZXIgbW90aW9uIGJsdXIKc2NlbmUucmVuZGVyLnVzZV9tb3Rpb25fYmx1ciA9IFRydWUKc2NlbmUucmVuZGVyLm1vdGlvbl9ibHVyX3NodXR0ZXIgPSAwLjUgIyAxODAtZGVncmVlIHNodXR0ZXIgYXQgc3RhbmRhcmQgZnJhbWUgcmF0ZXMKCnNjZW5lLmZyYW1lX3N0YXJ0ID0gMQpzY2VuZS5mcmFtZV9lbmQgPSA2MAoKIyBBbmltYXRlIEVudmlyb25tZW50IG1vdmluZyBwYXN0IHRoZSBjYXIgdG8gc2ltdWxhdGUgZXh0cmVtZSB2ZWxvY2l0eQpoaWdod2F5LmxvY2F0aW9uLnogPSAwLjAKaGlnaHdheS5rZXlmcmFtZV9pbnNlcnQoZGF0YV9wYXRoPSJsb2NhdGlvbiIsIGZyYW1lPTEpCmhpZ2h3YXkubG9jYXRpb24ueSA9IC0xMDAuMApoaWdod2F5LmtleWZyYW1lX2luc2VydChkYXRhX3BhdGg9ImxvY2F0aW9uIiwgZnJhbWU9NjApCgpzdHJpcGUubG9jYXRpb24ueSA9IDAuMApzdHJpcGUua2V5ZnJhbWVfaW5zZXJ0KGRhdGFfcGF0aD0ibG9jYXRpb24iLCBmcmFtZT0xKQpzdHJpcGUubG9jYXRpb24ueSA9IC0xMDAuMApzdHJpcGUua2V5ZnJhbWVfaW5zZXJ0KGRhdGFfcGF0aD0ibG9jYXRpb24iLCBmcmFtZT02MCkKCiMgTWFrZSBhbmltYXRpb24gbGluZWFyIGZvciBjb25zdGFudCBoaWdoLXNwZWVkIHRlYXJpbmcgbW90aW9uCmZvciBmYyBpbiBoaWdod2F5LmFuaW1hdGlvbl9kYXRhLmFjdGlvbi5mY3VydmVzOgogICAgZm9yIHAgaW4gZmMua2V5ZnJhbWVfcG9pbnRzOgogICAgICAgIHAuaW50ZXJwb2xhdGlvbiA9ICdMSU5FQVInCgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIyA4LiBGSU5BTCBSRU5ERVIgQ09ORklHVVJBVElPTgojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0Kc2NlbmUucmVuZGVyLnJlc29sdXRpb25feCA9IDE5MjAKc2NlbmUucmVuZGVyLnJlc29sdXRpb25feSA9IDEwODAKc2NlbmUucmVuZGVyLnJlc29sdXRpb25fcGVyY2VudGFnZSA9IDEwMApzY2VuZS5pbWFnZV9zZXR0aW5ncy5maWxlX2Zvcm1hdCA9ICdQTkcnCnNjZW5lLmltYWdlX3NldHRpbmdzLmNvbG9yX21vZGUgPSAnUkdCJwoKcHJpbnQoIkNpbmVtYXRpYyBoaWdod2F5IGFjdGlvbiBzZXF1ZW5jZSBzdWNjZXNzZnVsbHkgY29uc3RydWN0ZWQuIikKCiMgLS0tIENJTkVNQVRJQyBMSUdIVElORyAmIENBTUVSQSBSSUcgLS0tCnRyeToKICAgIGlmIG5vdCBicHkuY29udGV4dC5zY2VuZS5jYW1lcmE6CiAgICAgICAgY2FtX2RhdGEgPSBicHkuZGF0YS5jYW1lcmFzLm5ldygnQ2luZW1hdGljQ2FtZXJhJykKICAgICAgICBjYW1fZGF0YS5sZW5zID0gMjAuMAogICAgICAgIGNhbV9kYXRhLmRvZi51c2VfZG9mID0gVHJ1ZQogICAgICAgIGNhbV9kYXRhLmRvZi5hcGVydHVyZV9mc3RvcCA9IDIuOAogICAgICAgIGNhbV9vYmogPSBicHkuZGF0YS5vYmplY3RzLm5ldygnQ2FtZXJhJywgY2FtX2RhdGEpCiAgICAgICAgYnB5LmNvbnRleHQuY29sbGVjdGlvbi5vYmplY3RzLmxpbmsoY2FtX29iaikKICAgICAgICBicHkuY29udGV4dC5zY2VuZS5jYW1lcmEgPSBjYW1fb2JqCiAgICAgICAgY2FtX29iai5sb2NhdGlvbiA9ICgwLjk1LCAtMS44LCAwLjI1KQogICAgICAgIGNhbV9vYmoucm90YXRpb25fZXVsZXIgPSAobWF0aC5yYWRpYW5zKDcyKSwgMCwgMCkKZXhjZXB0IEV4Y2VwdGlvbiBhcyBjZTogcHJpbnQoZidDYW1lcmEgc2V0dXAgbm90ZToge2NlfScpCgp0cnk6CiAgICBzdW5fZGF0YSA9IGJweS5kYXRhLmxpZ2h0cy5uZXcoJ1N1bicsIHR5cGU9J1NVTicpCiAgICBzdW5fZGF0YS5lbmVyZ3kgPSA1LjUKICAgIHN1bl9vYmogPSBicHkuZGF0YS5vYmplY3RzLm5ldygnU3VuTGlnaHQnLCBzdW5fZGF0YSkKICAgIGJweS5jb250ZXh0LmNvbGxlY3Rpb24ub2JqZWN0cy5saW5rKHN1bl9vYmopCiAgICBzdW5fb2JqLnJvdGF0aW9uX2V1bGVyID0gKG1hdGgucmFkaWFucyg0NSksIG1hdGgucmFkaWFucygxNSksIG1hdGgucmFkaWFucygtMzApKQpleGNlcHQgRXhjZXB0aW9uIGFzIGxlOiBwcmludChmJ0xpZ2h0aW5nIHNldHVwIG5vdGU6IHtsZX0nKQoKIyAtLS0gQ09MT1IgTUFOQUdFTUVOVCAoQkxFTkRFUiA0LjIrIEFHWCkgLS0tCnRyeToKICAgIGJweS5jb250ZXh0LnNjZW5lLnZpZXdfc2V0dGluZ3Mudmlld190cmFuc2Zvcm0gPSAnQWdYJwogICAgYnB5LmNvbnRleHQuc2NlbmUudmlld19zZXR0aW5ncy5sb29rID0gJ0FnWCAtIEhpZ2ggQ29udHJhc3QnCmV4Y2VwdCBFeGNlcHRpb24gYXMgdmU6IHByaW50KGYnQ29sb3IgbWFuYWdlbWVudCBub3RlOiB7dmV9JykKCnRyeToKICAgIHdvcmxkID0gYnB5LmNvbnRleHQuc2NlbmUud29ybGQKICAgIGlmIHdvcmxkIGlzIE5vbmU6CiAgICAgICAgd29ybGQgPSBicHkuZGF0YS53b3JsZHMubmV3KCdXb3JsZCcpCiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUud29ybGQgPSB3b3JsZAogICAgd29ybGQudXNlX25vZGVzID0gVHJ1ZQogICAgd25vZGVzID0gd29ybGQubm9kZV90cmVlLm5vZGVzCiAgICB3bGlua3MgPSB3b3JsZC5ub2RlX3RyZWUubGlua3MKICAgIHZvbF9ub2RlID0gd25vZGVzLm5ldygnU2hhZGVyTm9kZVZvbHVtZVByaW5jaXBsZWQnKQogICAgdm9sX25vZGUuaW5wdXRzWydEZW5zaXR5J10uZGVmYXVsdF92YWx1ZSA9IDAuMDEyCiAgICB3X291dHB1dCA9IHdub2Rlcy5nZXQoJ1dvcmxkIE91dHB1dCcpCiAgICBpZiB3X291dHB1dDoKICAgICAgICB3bGlua3MubmV3KHZvbF9ub2RlLm91dHB1dHNbJ1ZvbHVtZSddLCB3X291dHB1dC5pbnB1dHNbJ1ZvbHVtZSddKQpleGNlcHQgRXhjZXB0aW9uIGFzIHZlOiBwcmludChmJ1ZvbHVtZXRyaWMgc2V0dXAgbm90ZToge3ZlfScpCgojIC0tLSBTVEVQIDE6IEVYUE9SVCBJTlRFUkFDVElWRSAzRCBHTFRGL0dMQiBNT0RFTCAtLS0KdHJ5OgogICAgYnB5Lm9wcy5leHBvcnRfc2NlbmUuZ2x0ZihmaWxlcGF0aD0nb3V0cHV0L21vZGVsLmdsYicsIGV4cG9ydF9mb3JtYXQ9J0dMQicsIGV4cG9ydF9za2lucz1UcnVlLCBleHBvcnRfYW5pbWF0aW9ucz1UcnVlKQogICAgcHJpbnQoJzNEIEdMVEYgRXhwb3J0IFN1Y2Nlc3NmdWw6IG91dHB1dC9tb2RlbC5nbGInKQpleGNlcHQgRXhjZXB0aW9uIGFzIGdlOiBwcmludChmJ0dMVEYgZXhwb3J0IHdhcm5pbmc6IHtnZX0nKQoKIyAtLS0gU1RFUCAyOiBIRUFETEVTUy1TQUZFIENQVSBDWUNMRVMgUFJFVklFVyBSRU5ERVIgLS0tCnRyeToKICAgIGlmIGJweS5jb250ZXh0LnNjZW5lLmNhbWVyYToKICAgICAgICBicHkuY29udGV4dC5zY2VuZS5yZW5kZXIuZW5naW5lID0gJ0NZQ0xFUycKICAgICAgICBicHkuY29udGV4dC5zY2VuZS5jeWNsZXMuZGV2aWNlID0gJ0NQVScKICAgICAgICBicHkuY29udGV4dC5zY2VuZS5jeWNsZXMuc2FtcGxlcyA9IDE2CiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUucmVuZGVyLnJlc29sdXRpb25feCA9IDEyODAKICAgICAgICBicHkuY29udGV4dC5zY2VuZS5yZW5kZXIucmVzb2x1dGlvbl95ID0gNzIwCiAgICAgICAgYnB5LmNvbnRleHQuc2NlbmUucmVuZGVyLmZpbGVwYXRoID0gJ291dHB1dC9yZW5kZXIucG5nJwogICAgICAgIGJweS5vcHMucmVuZGVyLnJlbmRlcih3cml0ZV9zdGlsbD1UcnVlKQogICAgICAgIHByaW50KCdDeWNsZXMgcHJldmlldyByZW5kZXIgY29tcGxldGU6IG91dHB1dC9yZW5kZXIucG5nJykKZXhjZXB0IEV4Y2VwdGlvbiBhcyByZTogcHJpbnQoZidQcmV2aWV3IHJlbmRlciBub3RlOiB7cmV9Jyk=
+  ASSET_ID: asset_1789767305346
+  W1_STRUCTURE: 
+  W2_DETAILS: 
+  W3_MATERIALS: 
+  W4_CINEMATICS: 
+Auto-Repair: Successfully redirected scene FBX import to converted GLB format.
+Python Syntax Pre-Check: PASSED
+21:36:46 | INFO: Data are loaded, start creating Blender stuff
+21:36:46 | INFO: Blender create Mesh node Mesh1
+21:36:46 | INFO: Blender create Mesh node Mesh2
+21:36:46 | INFO: Blender create Mesh node Mesh3
+21:36:46 | INFO: Blender create Mesh node Mesh4
+21:36:46 | INFO: Blender create Mesh node Mesh5
+21:36:46 | INFO: Blender create Mesh node Mesh6
+21:36:46 | INFO: Blender create Mesh node Mesh7
+21:36:46 | INFO: Blender create Mesh node Mesh8
+21:36:46 | INFO: Blender create Mesh node Mesh9
+21:36:46 | INFO: Blender create Mesh node Mesh10
+21:36:46 | INFO: Blender create Mesh node Mesh11
+21:36:46 | INFO: Blender create Mesh node Mesh12
+21:36:46 | INFO: Blender create Mesh node Mesh13
+21:36:46 | INFO: Blender create Mesh node Mesh14
+21:36:46 | INFO: Blender create Mesh node Mesh15
+21:36:46 | INFO: Blender create Mesh node Mesh16
+21:36:46 | INFO: Blender create Mesh node Mesh17
+21:36:46 | INFO: Blender create Mesh node Mesh18
+21:36:46 | INFO: Blender create Mesh node Mesh19
+21:36:46 | INFO: Blender create Mesh node Mesh20
+21:36:46 | INFO: Blender create Mesh node Mesh21
+21:36:46 | INFO: Blender create Mesh node Mesh22
+21:36:46 | INFO: Blender create Mesh node Mesh23
+21:36:46 | INFO: Blender create Mesh node Mesh24
+21:36:46 | INFO: Blender create Mesh node Mesh25
+21:36:46 | INFO: Blender create Mesh node Mesh26
+21:36:46 | INFO: Blender create Mesh node Mesh27
+21:36:46 | INFO: Blender create Mesh node Mesh28
+21:36:46 | INFO: Blender create Mesh node Mesh29
+21:36:46 | INFO: Blender create Mesh node Mesh30
+21:36:46 | INFO: Blender create Mesh node Mesh31
+21:36:46 | INFO: Blender create Mesh node Mesh32
+21:36:46 | INFO: Blender create Mesh node Mesh33
+21:36:46 | INFO: Blender create Mesh node Mesh34
+21:36:46 | INFO: Blender create Mesh node Mesh35
+21:36:46 | INFO: Blender create Mesh node Mesh36
+21:36:46 | INFO: Blender create Mesh node Mesh37
+21:36:46 | INFO: Blender create Mesh node Mesh38
+21:36:46 | INFO: Blender create Mesh node Mesh39
+21:36:46 | INFO: Blender create Mesh node Mesh40
+21:36:46 | INFO: Blender create Mesh node Mesh41
+21:36:46 | INFO: Blender create Mesh node Mesh42
+21:36:46 | INFO: Blender create Mesh node Mesh43
+21:36:46 | INFO: Blender create Mesh node Mesh44
+21:36:46 | INFO: Blender create Mesh node Mesh45
+21:36:46 | INFO: Blender create Mesh node Mesh46
+21:36:46 | INFO: Blender create Mesh node Mesh47
+21:36:46 | INFO: Blender create Mesh node Mesh48
+21:36:46 | INFO: Blender create Mesh node Mesh49
+21:36:46 | INFO: Blender create Mesh node Mesh50
+21:36:46 | INFO: Blender create Mesh node Mesh51
+21:36:46 | INFO: Blender create Mesh node Mesh52
+21:36:46 | INFO: Blender create Mesh node Mesh53
+21:36:46 | INFO: Blender create Mesh node Mesh54
+21:36:46 | INFO: Blender create Mesh node Mesh55
+21:36:46 | INFO: Blender create Mesh node Mesh56
+21:36:46 | INFO: Blender create Mesh node Mesh57
+21:36:46 | INFO: Blender create Mesh node Mesh58
+21:36:46 | INFO: Blender create Mesh node Mesh59
+21:36:46 | INFO: Blender create Mesh node Mesh60
+21:36:46 | INFO: Blender create Mesh node Mesh61
+21:36:46 | INFO: Blender create Mesh node Mesh62
+21:36:46 | INFO: Blender create Mesh node Mesh63
+21:36:46 | INFO: Blender create Mesh node Mesh64
+21:36:46 | INFO: Blender create Mesh node Mesh65
+21:36:46 | INFO: Blender create Mesh node Mesh66
+21:36:46 | INFO: Blender create Mesh node Mesh67
+21:36:46 | INFO: Blender create Mesh node Mesh68
+21:36:46 | INFO: Blender create Mesh node Mesh69
+21:36:46 | INFO: Blender create Mesh node Mesh70
+21:36:46 | INFO: Blender create Mesh node Mesh71
+21:36:46 | INFO: Blender create Mesh node Mesh72
+21:36:46 | INFO: Blender create Mesh node Mesh73
+21:36:46 | INFO: Blender create Mesh node Mesh74
+21:36:46 | INFO: Blender create Mesh node Mesh75
+21:36:46 | INFO: Blender create Mesh node Mesh76
+21:36:46 | INFO: Blender create Mesh node Mesh77
+21:36:46 | INFO: Blender create Mesh node Mesh78
+21:36:46 | INFO: Blender create Mesh node Mesh79
+21:36:46 | INFO: Blender create Mesh node Mesh80
+21:36:46 | INFO: Blender create Mesh node Mesh81
+21:36:46 | INFO: Blender create Mesh node Mesh82
+21:36:46 | INFO: Blender create Mesh node Mesh83
+21:36:46 | INFO: Blender create Mesh node Mesh84
+21:36:46 | INFO: Blender create Mesh node Mesh85
+21:36:46 | INFO: Blender create Mesh node Mesh86
+21:36:46 | INFO: Blender create Mesh node Mesh87
+21:36:46 | INFO: Blender create Mesh node Mesh88
+21:36:46 | INFO: Blender create Mesh node Mesh89
+21:36:46 | INFO: Blender create Mesh node Mesh90
+21:36:46 | INFO: Blender create Mesh node Mesh91
+21:36:46 | INFO: Blender create Mesh node Mesh92
+21:36:46 | INFO: Blender create Mesh node Mesh93
+21:36:46 | INFO: Blender create Mesh node Mesh94
+21:36:46 | INFO: Blender create Mesh node Mesh95
+21:36:46 | INFO: Blender create Mesh node Mesh96
+21:36:46 | INFO: Blender create Mesh node Mesh97
+21:36:46 | INFO: Blender create Mesh node Mesh98
+21:36:46 | INFO: Blender create Mesh node Mesh99
+21:36:46 | INFO: Blender create Mesh node Mesh100
+21:36:46 | INFO: Blender create Mesh node Mesh101
+21:36:46 | INFO: Blender create Mesh node Mesh102
+21:36:46 | INFO: Blender create Mesh node Mesh103
+21:36:46 | INFO: Blender create Mesh node Mesh104
+21:36:46 | INFO: Blender create Mesh node Mesh105
+21:36:46 | INFO: Blender create Mesh node Mesh106
+21:36:46 | INFO: Blender create Mesh node Mesh107
+21:36:46 | INFO: Blender create Mesh node Mesh108
+21:36:46 | INFO: Blender create Mesh node Mesh109
+21:36:46 | INFO: Blender create Mesh node Mesh110
+21:36:46 | INFO: Blender create Mesh node Mesh111
+21:36:46 | INFO: Blender create Mesh node Mesh112
+21:36:46 | INFO: Blender create Mesh node Mesh113
+21:36:46 | INFO: Blender create Mesh node Mesh114
+21:36:46 | INFO: Blender create Mesh node Mesh115
+21:36:46 | INFO: Blender create Mesh node Mesh116
+21:36:46 | INFO: Blender create Mesh node Mesh117
+21:36:46 | INFO: Blender create Mesh node Mesh118
+21:36:46 | INFO: Blender create Mesh node Mesh119
+21:36:46 | INFO: Blender create Mesh node Mesh120
+21:36:46 | INFO: Blender create Mesh node Mesh121
+21:36:46 | INFO: Blender create Mesh node Mesh122
+21:36:46 | INFO: Blender create Mesh node Mesh123
+21:36:46 | INFO: Blender create Mesh node Mesh124
+21:36:46 | INFO: Blender create Mesh node Mesh125
+21:36:46 | INFO: Blender create Mesh node Mesh126
+21:36:46 | INFO: Blender create Mesh node Mesh127
+21:36:46 | INFO: Blender create Mesh node Mesh128
+21:36:46 | INFO: Blender create Mesh node Mesh129
+21:36:46 | INFO: Blender create Mesh node Mesh130
+21:36:46 | INFO: Blender create Mesh node Mesh131
+21:36:46 | INFO: Blender create Mesh node Mesh132
+21:36:46 | INFO: Blender create Mesh node Mesh133
+21:36:46 | INFO: Blender create Mesh node Mesh134
+21:36:46 | INFO: Blender create Mesh node Mesh135
+21:36:46 | INFO: Blender create Mesh node Mesh136
+21:36:46 | INFO: Blender create Mesh node Mesh137
+21:36:46 | INFO: Blender create Mesh node Mesh138
+21:36:46 | INFO: Blender create Mesh node Mesh139
+21:36:46 | INFO: Blender create Mesh node Mesh140
+21:36:46 | INFO: Blender create Mesh node Mesh141
+21:36:46 | INFO: Blender create Mesh node Mesh142
+21:36:46 | INFO: Blender create Mesh node Mesh143
+21:36:46 | INFO: Blender create Mesh node Mesh144
+21:36:46 | INFO: Blender create Mesh node Mesh145
+21:36:46 | INFO: Blender create Mesh node Mesh146
+21:36:46 | INFO: Blender create Mesh node Mesh147
+21:36:46 | INFO: Blender create Mesh node Mesh148
+21:36:46 | INFO: Blender create Mesh node Mesh149
+21:36:46 | INFO: Blender create Mesh node Mesh150
+21:36:46 | INFO: Blender create Mesh node Mesh151
+21:36:46 | INFO: Blender create Mesh node Mesh152
+21:36:46 | INFO: Blender create Mesh node Mesh153
+21:36:46 | INFO: Blender create Mesh node Mesh154
+21:36:46 | INFO: Blender create Mesh node Mesh155
+21:36:46 | INFO: Blender create Mesh node Mesh156
+21:36:46 | INFO: Blender create Mesh node Mesh157
+21:36:46 | INFO: Blender create Mesh node Mesh158
+21:36:46 | INFO: Blender create Mesh node Mesh159
+21:36:46 | INFO: Blender create Mesh node Mesh160
+21:36:46 | INFO: Blender create Mesh node Mesh161
+21:36:46 | INFO: Blender create Mesh node Mesh162
+21:36:46 | INFO: Blender create Mesh node Mesh163
+21:36:46 | INFO: Blender create Mesh node Mesh164
+21:36:46 | INFO: Blender create Mesh node Mesh165
+21:36:46 | INFO: Blender create Mesh node Mesh166
+21:36:46 | INFO: Blender create Mesh node Mesh167
+21:36:46 | INFO: Blender create Mesh node Mesh168
+21:36:46 | INFO: glTF import finished in 0.30s
+Blender 4.2.0 (hash a51f293548ad built 2024-07-16 06:27:02)
+Traceback (most recent call last):
+  File "/home/runner/work/vynara2/vynara2/run_task.py", line 290, in <module>
+    scene.image_settings.file_format = 'PNG'
+    ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Scene' object has no attribute 'image_settings'. Did you mean: 'tool_settings'?
+Importing asset from inputs/input_model.glb...
+Imported objects: 356
+
+Blender quit
+EXTRACTED TRACEBACK TO error.txt:
+Traceback (most recent call last):
+  File "/home/runner/work/vynara2/vynara2/run_task.py", line 290, in <module>
+    scene.image_settings.file_format = 'PNG'
+    ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Scene' object has no attribute 'image_settings'. Did you mean: 'tool_settings'?
+Process completed with exit code 1.
